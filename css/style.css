@@ -1,0 +1,197 @@
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f0f4f8;
+}
+.terminal-container {
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    background: linear-gradient(145deg, #2c3e50, #34495e);
+}
+.terminal-header {
+    background: linear-gradient(90deg, #1a2a3a, #2c3e50);
+}
+.btn-primary {
+    transition: all 0.3s ease;
+}
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+.material-row:nth-child(odd) {
+    background-color: rgba(0, 0, 0, 0.03);
+}
+.description-field {
+    background-color: #f9f9f9;
+}
+.description-field.auto-filled {
+    background-color: #e8f4ff;
+}
+.description-field.error, .me-input.error {
+    background-color: #ffe8e8;
+    color: rgb(235, 0, 0);
+}
+/* Admin-Bereich, Verlauf und Klärungsfälle initial ausgeblendet */
+.admin-panel, .history-panel, .clarification-cases-panel {
+    display: none;
+}
+/* Menüleiste */
+.menu-bar {
+    background: linear-gradient(90deg, #1a2a3a, #2c3e50);
+}
+.menu-item {
+    transition: all 0.2s ease;
+}
+.menu-item:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+.menu-item.active {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-bottom: 2px solid #3498db;
+}
+/* Dropdown für Mengeneinheit */
+.me-dropdown {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+}
+.me-dropdown-content {
+    display: none;
+    position: absolute;
+    background-color: #f9f9f9;
+    min-width: 160px;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+    z-index: 1;
+    max-height: 200px;
+    overflow-y: auto;
+    width: 100%;
+}
+.me-dropdown-content div {
+    color: black;
+    padding: 8px 12px;
+    text-decoration: none;
+    display: block;
+    cursor: pointer;
+}
+.me-dropdown-content div:hover {
+    background-color: #f1f1f1;
+}
+.me-dropdown-content div.highlighted {
+    background-color: #3498db;
+    color: white;
+}
+.me-dropdown.show .me-dropdown-content {
+    display: block;
+}
+/* Flexbox für Materialnummernfeld und Kamera-Icon */
+.material-input-group {
+    display: flex;
+    align-items: center;
+    gap: 4px; /* Kleiner Abstand zwischen Feld und Icon */
+}
+.material-input-group input {
+    flex-grow: 1; /* Eingabefeld nimmt den meisten Platz ein */
+}
+.barcode-scan-btn {
+    background: #3498db;
+    color: white;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0; /* Verhindert, dass der Button schrumpft */
+}
+.barcode-scan-btn:hover {
+    background-color: #2980b9;
+}
+/* Responsive Table */
+@media screen and (max-width: 768px) {
+    .terminal-container {
+        padding: 0;
+    }
+    .terminal-header {
+        padding: 1rem;
+    }
+    .bg-white.p-6 {
+        padding: 1rem;
+    }
+    .grid.grid-cols-1.md\:grid-cols-3 {
+        grid-template-columns: 1fr;
+    }
+    .overflow-x-auto table {
+        width: 100%; /* Ensure table takes full width */
+        display: block;
+    }
+    .overflow-x-auto thead, .overflow-x-auto tbody, .overflow-x-auto th, .overflow-x-auto td, .overflow-x-auto tr {
+        display: block;
+    }
+    .overflow-x-auto thead tr {
+        position: absolute;
+        top: -9999px;
+        left: -9999px;
+    }
+    .overflow-x-auto tr {
+        border: 1px solid #ccc;
+        margin-bottom: 0.5rem;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    .overflow-x-auto td {
+        border: none;
+        position: relative;
+        padding-left: 50%;
+        text-align: right;
+    }
+    .overflow-x-auto td:before {
+        position: absolute;
+        top: 0;
+        left: 6px;
+        width: 45%;
+        padding-right: 10px;
+        white-space: nowrap;
+        text-align: left;
+        font-weight: bold;
+        content: attr(data-label);
+    }
+    .overflow-x-auto td:nth-of-type(1):before { content: "Materialnummer"; }
+    .overflow-x-auto td:nth-of-type(2):before { content: "Beschreibung"; }
+    .overflow-x-auto td:nth-of-type(3):before { content: "ME"; }
+    .overflow-x-auto td:nth-of-type(4):before { content: "Menge"; }
+    
+    /* Specific adjustments for input fields in responsive table */
+    .overflow-x-auto td .material-input-group {
+        width: 100%;
+        justify-content: flex-end; /* Align content to the right */
+    }
+    .overflow-x-auto td .material-input-group input {
+        text-align: right; /* Align text right in input field */
+    }
+    .overflow-x-auto td .me-dropdown {
+        width: 100%;
+    }
+    .overflow-x-auto td .me-input,
+    .overflow-x-auto td .menge-input,
+    .overflow-x-auto td .description-field {
+        text-align: right;
+    }
+    .overflow-x-auto td .me-dropdown-content {
+        left: unset;
+        right: 0; /* Align dropdown to the right */
+    }
+}
+/* Stil für das Barcode-Scanner-Modal */
+#barcodeScannerDialog video {
+    width: 100%;
+    height: auto;
+    max-height: 400px;
+    display: block;
+    background-color: black;
+}
+#barcodeScannerDialog #scanner-container {
+    position: relative;
+    overflow: hidden; /* Sicherstellen, dass nichts überläuft */
+}
+#barcodeScannerDialog #qr-canvas {
+    display: none; /* Canvas wird normalerweise von ZXing für das Zeichnen von Erkennungsrahmen verwendet */
+}
