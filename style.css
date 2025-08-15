@@ -16,12 +16,6 @@ body {
     transform: translateY(-2px);
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
 }
-/* ANPASSUNG: Button im Offline-Modus */
-.btn-primary:disabled {
-    background-color: #9ca3af; /* Tailwind gray-400 */
-    cursor: not-allowed;
-}
-
 .material-row:nth-child(odd) {
     background-color: rgba(0, 0, 0, 0.03);
 }
@@ -134,16 +128,9 @@ body {
         width: 100%; /* Ensure table takes full width */
         display: block;
     }
-    .overflow-x-auto thead, .overflow-x-auto tbody, .overflow-x-auto th, .overflow-x-auto td {
+    .overflow-x-auto thead, .overflow-x-auto tbody, .overflow-x-auto th, .overflow-x-auto td, .overflow-x-auto tr {
         display: block;
     }
-    
-    /* === HIER IST DIE ÄNDERUNG === */
-    /* Die Regel wird nur auf Zeilen angewendet, die NICHT die Klasse 'hidden' haben. */
-    .overflow-x-auto tr:not(.hidden) {
-        display: block;
-    }
-    
     .overflow-x-auto thead tr {
         position: absolute;
         top: -9999px;
@@ -173,10 +160,9 @@ body {
     }
     
     .overflow-x-auto td:nth-of-type(1):before { content: "SAP-Nr."; }
-    .overflow-x-auto td:nth-of-type(2):before { content: "Nachbestellen?"; }
-    .overflow-x-auto td:nth-of-type(3):before { content: ""; } /* Hide generic label for description */
-    .overflow-x-auto td:nth-of-type(4):before { content: "ME"; }
-    .overflow-x-auto td:nth-of-type(5):before { content: "Menge"; }
+    .overflow-x-auto td:nth-of-type(2):before { content: ""; } /* Hide generic label for description */
+    .overflow-x-auto td:nth-of-type(3):before { content: "ME"; }
+    .overflow-x-auto td:nth-of-type(4):before { content: "Menge"; }
     
     /* --- ANPASSUNG: Besseres Layout für Beschreibung in mobiler Ansicht --- */
     .overflow-x-auto td[data-label="Beschreibung"] {
