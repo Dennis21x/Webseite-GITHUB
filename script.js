@@ -29,7 +29,7 @@ let isInAdminMode = false;
 let codeReader = null;
 let currentMaterialInput = null;
 let localStream = null;
-let rowCount = 1; // NEU: Zähler für dynamische Zeilen
+let rowCount = 1; // Zähler für dynamische Zeilen
 
 // Datum und Uhrzeit aktualisieren
 function updateDateTime() {
@@ -82,18 +82,16 @@ function uploadMaterialDatabase(event) {
     }
 }
 
-// NEU & ÜBERARBEITET: Fügt alle Event-Listener zu einer bestimmten Zeile hinzu
+// Fügt alle Event-Listener zu einer bestimmten Zeile hinzu
 function attachEventListenersToRow(rowElement) {
     const rowNumber = parseInt(rowElement.querySelector('.material-input').name.split('_')[1]);
 
-    // Event-Listener für dynamische Zeilen
     rowElement.querySelectorAll('.material-input, .description-field').forEach(input => {
         input.addEventListener('input', (e) => {
             showNextRow(e.target.closest('tr'));
         });
     });
     
-    // SAP-Nr.-Eingabe-Event
     const materialInput = rowElement.querySelector('.material-input');
     materialInput.addEventListener('blur', function() { checkMaterialNumber(this); });
     materialInput.addEventListener('keydown', function(e) {
@@ -103,7 +101,6 @@ function attachEventListenersToRow(rowElement) {
         }
     });
     
-    // Beschreibungs-Feld-Events
     const descriptionInput = rowElement.querySelector('.description-field');
     descriptionInput.addEventListener('keydown', function(e) {
         if (e.key === 'Enter') {
@@ -119,7 +116,6 @@ function attachEventListenersToRow(rowElement) {
         }
     });
 
-    // Mengeneinheit-Dropdown-Funktionalität
     rowElement.querySelectorAll('.me-dropdown-content div').forEach(option => {
         option.addEventListener('click', function() {
             const value = this.getAttribute('data-value');
@@ -134,7 +130,6 @@ function attachEventListenersToRow(rowElement) {
         });
     });
     
-    // Menge-Eingabe-Events
     const mengeInput = rowElement.querySelector('.menge-input');
     mengeInput.addEventListener('keydown', function(e) {
         if (e.key === 'Enter') {
@@ -143,7 +138,6 @@ function attachEventListenersToRow(rowElement) {
         }
     });
 
-    // Event-Listener für die ME-Eingabefelder
     const meInput = rowElement.querySelector('.me-input');
     const handleMEInput = (meInputField) => {
         const value = meInputField.value.trim();
@@ -211,7 +205,6 @@ function attachEventListenersToRow(rowElement) {
     meInput.addEventListener('blur', function() { handleMEInput(this); setTimeout(() => this.parentElement.classList.remove('show'), 150); });
 }
 
-// NEU: Funktion zum Erstellen und Hinzufügen einer neuen Materialzeile
 function addNewMaterialRow() {
     const tbody = document.getElementById('material-tbody');
     const firstRow = tbody.querySelector('.material-row');
@@ -219,13 +212,11 @@ function addNewMaterialRow() {
     
     rowCount++;
     
-    // Alle IDs, names und onclick-Attribute aktualisieren
     newRow.querySelectorAll('[name]').forEach(el => {
-        el.name = el.name.replace('_1', `_${rowCount}`);
+        el.name = el.name.replace(/_\d+$/, `_${rowCount}`);
     });
     newRow.querySelector('.barcode-scan-btn').setAttribute('onclick', `openBarcodeScanner(${rowCount})`);
 
-    // Werte der neuen Zeile zurücksetzen
     newRow.querySelector('.material-input').value = '';
     newRow.querySelector('[type="hidden"]').value = '';
     newRow.querySelector('.description-field').value = '';
@@ -236,13 +227,12 @@ function addNewMaterialRow() {
     newRow.querySelectorAll('.error, .auto-filled').forEach(el => el.classList.remove('error', 'auto-filled'));
     
     tbody.appendChild(newRow);
-    attachEventListenersToRow(newRow); // Wichtig: Event-Listener für die neue Zeile anhängen
+    attachEventListenersToRow(newRow);
     
     return newRow;
 }
 
 
-// DOMContentLoaded Event
 document.addEventListener('DOMContentLoaded', function() {
     updateDateTime();
     setInterval(updateDateTime, 1000);
@@ -254,10 +244,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     document.getElementById('materialFile').addEventListener('change', uploadMaterialDatabase);
 
-    // Hänge Event-Listener nur an die erste, initiale Zeile
     attachEventListenersToRow(document.querySelector('.material-row'));
 
-    // NEU: Event-Listener für den "Zeile hinzufügen" Button
     document.getElementById('addRowBtn').addEventListener('click', () => {
         const newRow = addNewMaterialRow();
         newRow.querySelector('.material-input').focus();
@@ -275,7 +263,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         let hasAtLeastOneValidRow = false;
-        // ÜBERARBEITET: Schleife über alle existierenden Zeilen, nicht mehr fix 8
         document.querySelectorAll('.material-row').forEach(row => {
             const materialInput = row.querySelector('.material-input');
             const mengeInput = row.querySelector('.menge-input');
@@ -321,7 +308,6 @@ document.addEventListener('DOMContentLoaded', function() {
     window.addEventListener('offline', handleOnlineStatus);
     handleOnlineStatus();
     
-    // Dialog-Handler (unverändert)
     document.getElementById('closeDialog').addEventListener('click', () => document.getElementById('confirmationDialog').classList.add('hidden'));
     document.getElementById('cancelWarningMenge').addEventListener('click', () => { document.getElementById('warningMengeDialog').classList.add('hidden'); pendingSubmitData = null; });
     document.getElementById('confirmWarningMenge').addEventListener('click', () => {
@@ -396,28 +382,23 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('closeScannerDialog').addEventListener('click', closeBarcodeScanner);
 });
 
-// ÜBERARBEITET: Funktion zum Einblenden der nächsten Zeile
 const showNextRow = (currentRow) => {
-    // Wenn die aktuelle Zeile die letzte ist, füge eine neue hinzu.
     if (currentRow.isEqualNode(currentRow.parentElement.lastElementChild)) {
         addNewMaterialRow();
     }
 };
 
-// ÜBERARBEITET: Funktion zum Springen zur nächsten leeren Zeile
 function findNextEmptyMaterialRow(currentRowElement) {
     let nextRow = currentRowElement.nextElementSibling;
     if (nextRow) {
         const materialInput = nextRow.querySelector('.material-input');
         materialInput.focus();
     } else {
-        // Wenn es keine nächste Zeile gibt, erstelle eine und setze den Fokus
         const newRow = addNewMaterialRow();
         newRow.querySelector('.material-input').focus();
     }
 }
 
-// Unveränderte Funktionen
 function checkPin() {
     const pinInput = document.getElementById('pinInput');
     if (pinInput.value === ADMIN_PIN) {
@@ -432,6 +413,7 @@ function checkPin() {
         pinInput.focus();
     }
 }
+
 function setActiveMenuItem(itemId) {
     document.querySelectorAll('.menu-item').forEach(item => item.classList.remove('active'));
     document.getElementById(itemId).classList.add('active');
@@ -446,7 +428,7 @@ function setActiveMenuItem(itemId) {
     clarificationCasesPanel.style.display = 'none';
     backToAdminPanelBtn.classList.add('hidden');
     if (itemId === 'terminalMenuItem') {
-        isInAdminMode = false; 
+        // isInAdminMode = false; // KORREKTUR: Diese Zeile wurde entfernt, um den Admin-Status zu erhalten
         terminalPanel.style.display = 'block';
     } else if (itemId === 'adminMenuItem') {
         adminPanel.style.display = 'block';
@@ -455,6 +437,7 @@ function setActiveMenuItem(itemId) {
         clarificationCasesPanel.style.display = 'none';
     }
 }
+
 function checkMaterialNumber(inputElement) {
     const rowNumber = inputElement.name.split('_')[1];
     const descriptionField = document.querySelector(`[name="description_${rowNumber}"]`);
@@ -486,6 +469,7 @@ function checkMaterialNumber(inputElement) {
         descriptionField.value = ''; 
     }
 }
+
 function loadAllData() {
     const csvUrl = 'https://raw.githubusercontent.com/Dennis21x/lager-terminal-data/main/Terminaldaten.csv';
     document.getElementById('databaseStatus').textContent = 'Status: Lade Materialdatenbank von GitHub...';
@@ -494,7 +478,6 @@ function loadAllData() {
     db.collection("klaerungsfaelle").orderBy("timestamp", "desc").onSnapshot(snapshot => { clarificationCasesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })); updateClarificationCasesTable(); }, err => { console.error("Fehler beim Laden der Klärungsfälle: ", err); });
 }
 
-// ÜBERARBEITET: Formularvalidierung für dynamische Zeilen
 function validateForm() {
     const result = { missingMenge: [], missingKosten: false };
     document.querySelectorAll('.material-row').forEach((row, index) => {
@@ -502,7 +485,7 @@ function validateForm() {
         const mengeInput = row.querySelector('.menge-input');
         const descriptionInput = row.querySelector('.description-field');
         if ((materialNrInput.value.trim() !== '' || descriptionInput.value.trim() !== '') && mengeInput.value.trim() === '') {
-            result.missingMenge.push(index + 1); // Zeilennummer ist index + 1
+            result.missingMenge.push(index + 1);
         }
     });
     const kostenstelle = document.getElementById('kostenstelle').value.trim();
@@ -512,7 +495,6 @@ function validateForm() {
     return result;
 }
 
-// ÜBERARBEITET: Datensammlung für dynamische Zeilen
 function collectFormData() {
     const materialien = [];
     document.querySelectorAll('.material-row').forEach(row => {
@@ -556,6 +538,7 @@ function isClarificationCase(formData) {
     }
     return false;
 }
+
 function submitForm(formData) {
     const dataToSave = { ...formData, timestamp: firebase.firestore.FieldValue.serverTimestamp() };
     const collectionName = isClarificationCase(formData) ? "klaerungsfaelle" : "entnahmen";
@@ -566,19 +549,16 @@ function submitForm(formData) {
     }).catch(error => console.error(`Fehler beim Speichern von ${collectionName}: `, error));
 }
 
-// ÜBERARBEITET: Formular-Reset für dynamische Zeilen
 function resetForm() {
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('entnahmeForm').reset();
     document.getElementById('entnahmedatum').value = today;
 
-    // Alle dynamisch hinzugefügten Zeilen entfernen
     const tbody = document.getElementById('material-tbody');
     while (tbody.children.length > 1) {
         tbody.removeChild(tbody.lastChild);
     }
     
-    // Die erste (und einzige verbliebene) Zeile zurücksetzen
     const firstRow = tbody.querySelector('.material-row');
     firstRow.querySelectorAll('.description-field, .me-input, .material-input').forEach(f => f.classList.remove('auto-filled', 'error'));
     firstRow.querySelector('input[name^="primary_material_"]').value = '';
@@ -586,15 +566,15 @@ function resetForm() {
     meInput.value = '';
     meInput.removeAttribute('data-value');
 
-    rowCount = 1; // Zeilenzähler zurücksetzen
+    rowCount = 1;
     document.getElementById('mitarbeiter').focus();
 }
 
-// History und Export Funktionen (unverändert, aber hier für Vollständigkeit)
 function formatTimestamp(firebaseTimestamp) {
     if (!firebaseTimestamp || !firebaseTimestamp.toDate) return 'Ungültiges Datum';
     return firebaseTimestamp.toDate().toLocaleDateString('de-DE');
 }
+
 function updateNormalHistoryTable() {
     const tbody = document.getElementById('normalHistoryList');
     tbody.innerHTML = '';
@@ -610,6 +590,7 @@ function updateNormalHistoryTable() {
         });
     }
 }
+
 function updateClarificationCasesTable() {
     const tbody = document.getElementById('clarificationCasesList');
     tbody.innerHTML = '';
@@ -625,6 +606,7 @@ function updateClarificationCasesTable() {
         });
     }
 }
+
 function editEntry(id, type) {
     const dataSet = type === 'normal' ? normalHistoryData : clarificationCasesData;
     const entry = dataSet.find(item => item.id === id);
@@ -637,7 +619,6 @@ function editEntry(id, type) {
     document.getElementById('auftrag').value = entry.auftrag || '';
     document.getElementById('projektnr').value = entry.projektnr || '';
     
-    // Bestehende Zeilen füllen und bei Bedarf neue erstellen
     entry.materialien.forEach((material, i) => {
         let row = document.querySelectorAll('.material-row')[i];
         if (!row) { row = addNewMaterialRow(); }
@@ -658,15 +639,17 @@ function editEntry(id, type) {
     setActiveMenuItem('terminalMenuItem');
     alert("Eintrag wurde geladen. Bitte überprüfen und erneut 'Entnahme bestätigen' klicken.");
 }
+
 function deleteEntry(id, type) {
     if (confirm('Wollen Sie diesen Eintrag wirklich endgültig löschen?')) {
         const collectionName = type === 'normal' ? 'entnahmen' : 'klaerungsfaelle';
         db.collection(collectionName).doc(id).delete().then(() => console.log("Eintrag gelöscht.")).catch(error => console.error("Fehler: ", error));
     }
 }
+
 function exportToCSV(data, filename) {
     if (data.length === 0) { alert('Keine Daten zum Exportieren.'); return; }
-    let csvContent = 'Datum;Mitarbeiter;Vorgesetzter;Kostenstelle;Auftrag;Projekt-Nr;Material-Nr;Beschreibung;ME;Menge\n';
+    let csvContent = 'Datum;Mitarbeiter;Vorgesetzter;Kostenstelle;Auftrag;Projekt-Nr;Eingegebene Nr.;SAP-Nr.;Beschreibung;ME;Menge;Nachbestellen\n';
     data.forEach(entry => {
         const dateStr = entry.entnahmedatum ? new Date(entry.entnahmedatum).toLocaleDateString('de-DE') : formatTimestamp(entry.timestamp);
         if (entry.materialien && entry.materialien.length > 0) {
@@ -691,150 +674,72 @@ function exportToCSV(data, filename) {
     link.click();
     document.body.removeChild(link);
 }
-function exportNormalHistoryToCSV() {
-            if (normalHistoryData.length === 0) { alert('Keine Daten zum Exportieren vorhanden.'); return; }
-            let csvContent = 'Datum;Mitarbeiter;Vorgesetzter;Kostenstelle;Auftrag;Projekt-Nr;Material-Nr;Beschreibung;ME;Menge\n';
-            normalHistoryData.forEach(entry => {
-                const dateStr = new Date(entry.entnahmedatum).toLocaleDateString('de-DE');
-                entry.materialien.forEach(m => {
-                    const meText = m.me && m.me.text ? m.me.text : '';
-                    csvContent += `${dateStr};${entry.mitarbeiter};${entry.vorgesetzter || ''};${entry.kostenstelle || ''};${entry.auftrag || ''};${entry.projektnr || ''};${m.materialNr || ''};${m.beschreibung || ''};${meText};${m.menge || ''}\n`;
-                });
-            });
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            const url = URL.createObjectURL(blob);
-            link.setAttribute('href', url);
-            link.setAttribute('download', `entnahme_verlauf.csv`);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-  
-function exportClarificationCasesToCSV() {
-            if (clarificationCasesData.length === 0) { alert('Keine Klärungsfälle zum Exportieren vorhanden.'); return; }
-            let csvContent = 'Datum;Mitarbeiter;Vorgesetzter;Kostenstelle;Auftrag;Projekt-Nr;Material-Nr;Beschreibung;ME;Menge\n';
-            clarificationCasesData.forEach(entry => {
-                const dateStr = new Date(entry.entnahmedatum).toLocaleDateString('de-DE');
-                entry.materialien.forEach(m => {
-                    const meText = m.me && m.me.text ? m.me.text : '';
-                    csvContent += `${dateStr};${entry.mitarbeiter};${entry.vorgesetzter || ''};${entry.kostenstelle || ''};${entry.auftrag || ''};${entry.projektnr || ''};${m.materialNr || ''};${m.beschreibung || ''};${meText};${m.menge || ''}\n`;
-                });
-            });
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            const url = URL.createObjectURL(blob);
-            link.setAttribute('href', url);
-            link.setAttribute('download', `klaerungsfaelle.csv`);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+
+function exportNormalHistoryToCSV() { exportToCSV(normalHistoryData, 'entnahme_verlauf.csv'); }
+function exportClarificationCasesToCSV() { exportToCSV(clarificationCasesData, 'klaerungsfaelle.csv'); }
+
+async function openBarcodeScanner(rowNumber) {
+    currentMaterialInput = document.querySelector(`[name="material_${rowNumber}"]`);
+    const scannerDialog = document.getElementById('barcodeScannerDialog');
+    const qrVideo = document.getElementById('qr-video');
+    const scannerStatus = document.getElementById('scanner-status');
+    scannerDialog.classList.remove('hidden');
+    scannerStatus.textContent = 'Kamera wird gestartet...';
+    try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            scannerStatus.textContent = 'Fehler: Kamerazugriff nicht unterstützt.';
+            alert('Kamerazugriff wird von Ihrem Browser nicht unterstützt.');
+            closeBarcodeScanner();
+            return;
         }
-
-// --- ANPASSUNG: Barcode-Scanner-Funktion überarbeitet ---
-        // --- START: KORRIGIERTER BEREICH ---
-        
-        async function openBarcodeScanner(rowNumber) {
-            currentMaterialInput = document.querySelector(`[name="material_${rowNumber}"]`);
-            const scannerDialog = document.getElementById('barcodeScannerDialog');
-            const qrVideo = document.getElementById('qr-video');
-            const scannerStatus = document.getElementById('scanner-status');
-            
-            scannerDialog.classList.remove('hidden');
-            scannerStatus.textContent = 'Kamera wird gestartet...';
-
-            try {
-                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                    scannerStatus.textContent = 'Fehler: Kamerazugriff nicht unterstützt.';
-                    alert('Kamerazugriff wird von Ihrem Browser nicht unterstützt.');
-                    closeBarcodeScannerAndShowFallback(currentMaterialInput); // Fallback auf manuelle Eingabe
-                    return;
+        const hints = new Map();
+        const formats = [ZXing.BarcodeFormat.CODE_128, ZXing.BarcodeFormat.CODE_39, ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.QR_CODE];
+        hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
+        codeReader = new ZXing.BrowserMultiFormatReader(hints);
+        codeReader.decodeFromVideoDevice(null, 'qr-video', (result, err) => {
+            if (result) {
+                console.log('Barcode gescannt:', result.text);
+                if (currentMaterialInput) {
+                    currentMaterialInput.value = result.text;
+                    currentMaterialInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    checkMaterialNumber(currentMaterialInput);
                 }
-
-                // Wir geben dem Scanner "Hints" (Hinweise), welche Formate er suchen soll.
-                const hints = new Map();
-                const formats = [
-                    ZXing.BarcodeFormat.CODE_128, // Wichtig für Ihren Barcode
-                    ZXing.BarcodeFormat.CODE_39,
-                    ZXing.BarcodeFormat.EAN_13,
-                    ZXing.BarcodeFormat.QR_CODE // Wir lassen QR-Codes weiterhin aktiviert
-                ];
-                hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
-
-                // Initialisieren des Readers mit den neuen Hinweisen.
-                codeReader = new ZXing.BrowserMultiFormatReader(hints);
-
-                codeReader.decodeFromVideoDevice(null, 'qr-video', (result, err) => {
-                    if (result) {
-                        const scannedBarcode = result.text;
-                        console.log('Barcode gescannt:', scannedBarcode);
-                        if (currentMaterialInput) {
-                            currentMaterialInput.value = scannedBarcode;
-                            checkMaterialNumber(currentMaterialInput);
-                        }
-                        closeBarcodeScanner();
-                    }
-                    if (err && !(err instanceof ZXing.NotFoundException)) {
-                        console.error('Scan-Fehler:', err);
-                        scannerStatus.textContent = `Fehler beim Scannen: ${err.message}`;
-                    }
-                });
-
-                scannerStatus.textContent = 'Scannen läuft... Halten Sie den Barcode vor die Kamera.';
-
-            } catch (err) {
-                console.error('Zugriff auf die Kamera fehlgeschlagen:', err);
-                let errorMessage = 'Unbekannter Fehler beim Kamerazugriff.';
-                if (err.name === 'NotAllowedError') {
-                    errorMessage = 'Kamerazugriff wurde verweigert. Bitte erlauben Sie den Zugriff in Ihren Browsereinstellungen.';
-                } else if (err.name === 'NotFoundError') {
-                    errorMessage = 'Keine Kamera gefunden.';
-                }
-                
-                scannerStatus.textContent = `Fehler: ${errorMessage}`;
-                alert(`${errorMessage}\nBitte Materialnummer manuell eingeben.`);
-                closeBarcodeScannerAndShowFallback(currentMaterialInput); // Fallback auf manuelle Eingabe
+                closeBarcodeScanner();
             }
-        }
-
-        function closeBarcodeScanner() {
-            const scannerDialog = document.getElementById('barcodeScannerDialog');
-            const qrVideo = document.getElementById('qr-video');
-            
-            if (codeReader) {
-                codeReader.reset(); // Kamera und Stream stoppen
+            if (err && !(err instanceof ZXing.NotFoundException)) {
+                console.error('Scan-Fehler:', err);
+                scannerStatus.textContent = `Fehler beim Scannen: ${err.message}`;
             }
-            scannerDialog.classList.add('hidden');
-            qrVideo.srcObject = null; // Video-Stream leeren
-            currentMaterialInput = null; // Aktuelles Input-Feld zurücksetzen
-        }
+        });
+        scannerStatus.textContent = 'Scannen läuft... Halten Sie den Barcode vor die Kamera.';
+    } catch (err) {
+        console.error('Zugriff auf die Kamera fehlgeschlagen:', err);
+        let errorMessage = 'Unbekannter Fehler beim Kamerazugriff.';
+        if (err.name === 'NotAllowedError') errorMessage = 'Kamerazugriff wurde verweigert.';
+        else if (err.name === 'NotFoundError') errorMessage = 'Keine Kamera gefunden.';
+        scannerStatus.textContent = `Fehler: ${errorMessage}`;
+        alert(errorMessage);
+        closeBarcodeScanner();
+    }
+}
 
-        function closeBarcodeScannerAndShowFallback(inputElement) {
-            closeBarcodeScanner(); // Schließt den Dialog und stoppt die Kamera
-            // Führt die manuelle Eingabe NACH dem Schließen aus
-            setTimeout(() => {
-                const barcode = prompt(`Kamerazugriff fehlgeschlagen. Bitte Materialnummer manuell eingeben:`);
-                if (barcode && inputElement) {
-                    inputElement.value = barcode;
-                    checkMaterialNumber(inputElement);
-                }
-            }, 100); // Eine kleine Verzögerung stellt sicher, dass der Dialog erst geschlossen ist
-        }
+function closeBarcodeScanner() {
+    const scannerDialog = document.getElementById('barcodeScannerDialog');
+    if (codeReader) codeReader.reset();
+    scannerDialog.classList.add('hidden');
+    document.getElementById('qr-video').srcObject = null;
+    currentMaterialInput = null;
+}
 
-        // --- ENDE: KORRIGIERTER BEREICH ---
-
+// KORREKTUR: Dieser Kamera-Zoom-Patch wurde wieder hinzugefügt. Er wurde versehentlich entfernt.
 async function applyZoomToCamera(stream) {
     const [track] = stream.getVideoTracks();
+    if (!track) return;
     const capabilities = track.getCapabilities();
     if ('zoom' in capabilities) {
-        const settings = track.getSettings();
-        const constraints = {
-            advanced: [{ zoom: Math.min(capabilities.zoom.max, 4) }]
-        };
         try {
-            await track.applyConstraints(constraints);
-            console.log("4x zoom applied.");
+            await track.applyConstraints({ advanced: [{ zoom: Math.min(capabilities.zoom.max, 2) }] });
+            console.log("2x zoom applied.");
         } catch (err) {
             console.warn("Zoom could not be applied:", err);
         }
@@ -843,11 +748,13 @@ async function applyZoomToCamera(stream) {
     }
 }
 
-// Patch getUserMedia to apply zoom after camera starts
-const originalGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
-navigator.mediaDevices.getUserMedia = async function(constraints) {
-    const stream = await originalGetUserMedia(constraints);
-    applyZoomToCamera(stream);
-    return stream;
+if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    const originalGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+    navigator.mediaDevices.getUserMedia = async function(constraints) {
+        const stream = await originalGetUserMedia(constraints);
+        if (stream.getVideoTracks().length > 0) {
+            await applyZoomToCamera(stream);
+        }
+        return stream;
+    }
 }
-// --- ENDE ANPASSUNG ---
