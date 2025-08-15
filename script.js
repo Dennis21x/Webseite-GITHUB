@@ -732,7 +732,8 @@ function exportClarificationCasesToCSV() {
             document.body.removeChild(link);
         }
 
-// --- START: KORRIGIERTER BEREICH ---
+// --- ANPASSUNG: Barcode-Scanner-Funktion überarbeitet ---
+        // --- START: KORRIGIERTER BEREICH ---
         
         async function openBarcodeScanner(rowNumber) {
             currentMaterialInput = document.querySelector(`[name="material_${rowNumber}"]`);
@@ -822,9 +823,7 @@ function exportClarificationCasesToCSV() {
         }
 
         // --- ENDE: KORRIGIERTER BEREICH ---
-    </script>
 
-<script>
 async function applyZoomToCamera(stream) {
     const [track] = stream.getVideoTracks();
     const capabilities = track.getCapabilities();
@@ -851,3 +850,4 @@ navigator.mediaDevices.getUserMedia = async function(constraints) {
     applyZoomToCamera(stream);
     return stream;
 }
+// --- ENDE ANPASSUNG ---
