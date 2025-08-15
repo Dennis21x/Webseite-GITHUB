@@ -691,58 +691,163 @@ function exportToCSV(data, filename) {
     link.click();
     document.body.removeChild(link);
 }
-function exportNormalHistoryToCSV() { exportToCSV(normalHistoryData, 'entnahme_verlauf.csv'); }
-function exportClarificationCasesToCSV() { exportToCSV(clarificationCasesData, 'klaerungsfaelle.csv'); }
-
-// Barcode Scanner Funktionen (unverändert)
-async function openBarcodeScanner(rowNumber) {
-    currentMaterialInput = document.querySelector(`[name="material_${rowNumber}"]`);
-    const scannerDialog = document.getElementById('barcodeScannerDialog');
-    const qrVideo = document.getElementById('qr-video');
-    const scannerStatus = document.getElementById('scanner-status');
-    scannerDialog.classList.remove('hidden');
-    scannerStatus.textContent = 'Kamera wird gestartet...';
-    try {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            scannerStatus.textContent = 'Fehler: Kamerazugriff nicht unterstützt.';
-            alert('Kamerazugriff wird von Ihrem Browser nicht unterstützt.');
-            closeBarcodeScanner();
-            return;
+function exportNormalHistoryToCSV() {
+            if (normalHistoryData.length === 0) { alert('Keine Daten zum Exportieren vorhanden.'); return; }
+            let csvContent = 'Datum;Mitarbeiter;Vorgesetzter;Kostenstelle;Auftrag;Projekt-Nr;Material-Nr;Beschreibung;ME;Menge\n';
+            normalHistoryData.forEach(entry => {
+                const dateStr = new Date(entry.entnahmedatum).toLocaleDateString('de-DE');
+                entry.materialien.forEach(m => {
+                    const meText = m.me && m.me.text ? m.me.text : '';
+                    csvContent += `${dateStr};${entry.mitarbeiter};${entry.vorgesetzter || ''};${entry.kostenstelle || ''};${entry.auftrag || ''};${entry.projektnr || ''};${m.materialNr || ''};${m.beschreibung || ''};${meText};${m.menge || ''}\n`;
+                });
+            });
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `entnahme_verlauf.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+  
+function exportClarificationCasesToCSV() {
+            if (clarificationCasesData.length === 0) { alert('Keine Klärungsfälle zum Exportieren vorhanden.'); return; }
+            let csvContent = 'Datum;Mitarbeiter;Vorgesetzter;Kostenstelle;Auftrag;Projekt-Nr;Material-Nr;Beschreibung;ME;Menge\n';
+            clarificationCasesData.forEach(entry => {
+                const dateStr = new Date(entry.entnahmedatum).toLocaleDateString('de-DE');
+                entry.materialien.forEach(m => {
+                    const meText = m.me && m.me.text ? m.me.text : '';
+                    csvContent += `${dateStr};${entry.mitarbeiter};${entry.vorgesetzter || ''};${entry.kostenstelle || ''};${entry.auftrag || ''};${entry.projektnr || ''};${m.materialNr || ''};${m.beschreibung || ''};${meText};${m.menge || ''}\n`;
+                });
+            });
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `klaerungsfaelle.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
-        const hints = new Map();
-        const formats = [ZXing.BarcodeFormat.CODE_128, ZXing.BarcodeFormat.CODE_39, ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.QR_CODE];
-        hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
-        codeReader = new ZXing.BrowserMultiFormatReader(hints);
-        codeReader.decodeFromVideoDevice(null, 'qr-video', (result, err) => {
-            if (result) {
-                console.log('Barcode gescannt:', result.text);
-                if (currentMaterialInput) {
-                    currentMaterialInput.value = result.text;
-                    currentMaterialInput.dispatchEvent(new Event('input', { bubbles: true }));
-                    checkMaterialNumber(currentMaterialInput);
+
+// --- START: KORRIGIERTER BEREICH ---
+        
+        async function openBarcodeScanner(rowNumber) {
+            currentMaterialInput = document.querySelector(`[name="material_${rowNumber}"]`);
+            const scannerDialog = document.getElementById('barcodeScannerDialog');
+            const qrVideo = document.getElementById('qr-video');
+            const scannerStatus = document.getElementById('scanner-status');
+            
+            scannerDialog.classList.remove('hidden');
+            scannerStatus.textContent = 'Kamera wird gestartet...';
+
+            try {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    scannerStatus.textContent = 'Fehler: Kamerazugriff nicht unterstützt.';
+                    alert('Kamerazugriff wird von Ihrem Browser nicht unterstützt.');
+                    closeBarcodeScannerAndShowFallback(currentMaterialInput); // Fallback auf manuelle Eingabe
+                    return;
                 }
-                closeBarcodeScanner();
+
+                // Wir geben dem Scanner "Hints" (Hinweise), welche Formate er suchen soll.
+                const hints = new Map();
+                const formats = [
+                    ZXing.BarcodeFormat.CODE_128, // Wichtig für Ihren Barcode
+                    ZXing.BarcodeFormat.CODE_39,
+                    ZXing.BarcodeFormat.EAN_13,
+                    ZXing.BarcodeFormat.QR_CODE // Wir lassen QR-Codes weiterhin aktiviert
+                ];
+                hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
+
+                // Initialisieren des Readers mit den neuen Hinweisen.
+                codeReader = new ZXing.BrowserMultiFormatReader(hints);
+
+                codeReader.decodeFromVideoDevice(null, 'qr-video', (result, err) => {
+                    if (result) {
+                        const scannedBarcode = result.text;
+                        console.log('Barcode gescannt:', scannedBarcode);
+                        if (currentMaterialInput) {
+                            currentMaterialInput.value = scannedBarcode;
+                            checkMaterialNumber(currentMaterialInput);
+                        }
+                        closeBarcodeScanner();
+                    }
+                    if (err && !(err instanceof ZXing.NotFoundException)) {
+                        console.error('Scan-Fehler:', err);
+                        scannerStatus.textContent = `Fehler beim Scannen: ${err.message}`;
+                    }
+                });
+
+                scannerStatus.textContent = 'Scannen läuft... Halten Sie den Barcode vor die Kamera.';
+
+            } catch (err) {
+                console.error('Zugriff auf die Kamera fehlgeschlagen:', err);
+                let errorMessage = 'Unbekannter Fehler beim Kamerazugriff.';
+                if (err.name === 'NotAllowedError') {
+                    errorMessage = 'Kamerazugriff wurde verweigert. Bitte erlauben Sie den Zugriff in Ihren Browsereinstellungen.';
+                } else if (err.name === 'NotFoundError') {
+                    errorMessage = 'Keine Kamera gefunden.';
+                }
+                
+                scannerStatus.textContent = `Fehler: ${errorMessage}`;
+                alert(`${errorMessage}\nBitte Materialnummer manuell eingeben.`);
+                closeBarcodeScannerAndShowFallback(currentMaterialInput); // Fallback auf manuelle Eingabe
             }
-            if (err && !(err instanceof ZXing.NotFoundException)) {
-                console.error('Scan-Fehler:', err);
-                scannerStatus.textContent = `Fehler beim Scannen: ${err.message}`;
+        }
+
+        function closeBarcodeScanner() {
+            const scannerDialog = document.getElementById('barcodeScannerDialog');
+            const qrVideo = document.getElementById('qr-video');
+            
+            if (codeReader) {
+                codeReader.reset(); // Kamera und Stream stoppen
             }
-        });
-        scannerStatus.textContent = 'Scannen läuft... Halten Sie den Barcode vor die Kamera.';
-    } catch (err) {
-        console.error('Zugriff auf die Kamera fehlgeschlagen:', err);
-        let errorMessage = 'Unbekannter Fehler beim Kamerazugriff.';
-        if (err.name === 'NotAllowedError') errorMessage = 'Kamerazugriff wurde verweigert.';
-        else if (err.name === 'NotFoundError') errorMessage = 'Keine Kamera gefunden.';
-        scannerStatus.textContent = `Fehler: ${errorMessage}`;
-        alert(errorMessage);
-        closeBarcodeScanner();
+            scannerDialog.classList.add('hidden');
+            qrVideo.srcObject = null; // Video-Stream leeren
+            currentMaterialInput = null; // Aktuelles Input-Feld zurücksetzen
+        }
+
+        function closeBarcodeScannerAndShowFallback(inputElement) {
+            closeBarcodeScanner(); // Schließt den Dialog und stoppt die Kamera
+            // Führt die manuelle Eingabe NACH dem Schließen aus
+            setTimeout(() => {
+                const barcode = prompt(`Kamerazugriff fehlgeschlagen. Bitte Materialnummer manuell eingeben:`);
+                if (barcode && inputElement) {
+                    inputElement.value = barcode;
+                    checkMaterialNumber(inputElement);
+                }
+            }, 100); // Eine kleine Verzögerung stellt sicher, dass der Dialog erst geschlossen ist
+        }
+
+        // --- ENDE: KORRIGIERTER BEREICH ---
+    </script>
+
+<script>
+async function applyZoomToCamera(stream) {
+    const [track] = stream.getVideoTracks();
+    const capabilities = track.getCapabilities();
+    if ('zoom' in capabilities) {
+        const settings = track.getSettings();
+        const constraints = {
+            advanced: [{ zoom: Math.min(capabilities.zoom.max, 4) }]
+        };
+        try {
+            await track.applyConstraints(constraints);
+            console.log("4x zoom applied.");
+        } catch (err) {
+            console.warn("Zoom could not be applied:", err);
+        }
+    } else {
+        console.log("Zoom not supported on this device.");
     }
 }
-function closeBarcodeScanner() {
-    const scannerDialog = document.getElementById('barcodeScannerDialog');
-    if (codeReader) codeReader.reset();
-    scannerDialog.classList.add('hidden');
-    document.getElementById('qr-video').srcObject = null;
-    currentMaterialInput = null;
+
+// Patch getUserMedia to apply zoom after camera starts
+const originalGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+navigator.mediaDevices.getUserMedia = async function(constraints) {
+    const stream = await originalGetUserMedia(constraints);
+    applyZoomToCamera(stream);
+    return stream;
 }
