@@ -666,7 +666,7 @@ function deleteEntry(id, type) {
 }
 function exportToCSV(data, filename) {
     if (data.length === 0) { alert('Keine Daten zum Exportieren.'); return; }
-    let csvContent = 'Datum;Mitarbeiter;Vorgesetzter;Kostenstelle;Auftrag;Projekt-Nr;Eingegebene Nr.;SAP-Nr.;Beschreibung;ME;Menge;Nachbestellen\n';
+    let csvContent = 'Datum;Mitarbeiter;Vorgesetzter;Kostenstelle;Auftrag;Projekt-Nr;Material-Nr;Beschreibung;ME;Menge\n';
     data.forEach(entry => {
         const dateStr = entry.entnahmedatum ? new Date(entry.entnahmedatum).toLocaleDateString('de-DE') : formatTimestamp(entry.timestamp);
         if (entry.materialien && entry.materialien.length > 0) {
