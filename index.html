@@ -4,520 +4,427 @@
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
     <title>Lager-Entnahme Terminal</title>
+    
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet"/>
-    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js"></script>
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
+    
+    <link rel="stylesheet" href="style.css">
 </head>
 <body class="min-h-screen p-4 md:p-8">
 
-    <div class="menu-bar max-w-5xl mx-auto rounded-t-lg overflow-hidden">
-        <div class="flex flex-col sm:flex-row">
-            <div class="menu-item active px-6 py-3 text-white font-medium cursor-pointer text-center sm:text-left" id="terminalMenuItem">
-                Lager-Entnahme Terminal
-            </div>
-            <div class="menu-item px-6 py-3 text-white font-medium cursor-pointer text-center sm:text-left" id="adminMenuItem">
-                Administrator-Bereich
-            </div>
-            <div class="menu-item px-6 py-3 text-white font-medium cursor-pointer hidden text-center sm:text-left" id="historyMenuItem">
-                Entnahme-Verlauf
-            </div>
-            <div class="menu-item px-6 py-3 text-white font-medium cursor-pointer hidden text-center sm:text-left" id="clarificationCasesMenuItem">
-                Klärungsfälle
-            </div>
+<div class="menu-bar max-w-5xl mx-auto rounded-t-lg overflow-hidden">
+    <div class="flex flex-col sm:flex-row">
+        <div class="menu-item active px-6 py-3 text-white font-medium cursor-pointer text-center sm:text-left" id="terminalMenuItem">
+            Lager-Entnahme Terminal
+        </div>
+        <div class="menu-item px-6 py-3 text-white font-medium cursor-pointer text-center sm:text-left" id="adminMenuItem">
+            Administrator-Bereich
+        </div>
+        <div class="menu-item px-6 py-3 text-white font-medium cursor-pointer hidden text-center sm:text-left" id="historyMenuItem">
+            Entnahme-Verlauf
+        </div>
+        <div class="menu-item px-6 py-3 text-white font-medium cursor-pointer hidden text-center sm:text-left" id="clarificationCasesMenuItem">
+            Klärungsfälle
         </div>
     </div>
-    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50" id="pinDialog">
-        <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 class="text-xl font-bold text-gray-800 mb-4">Administrator-Anmeldung</h3>
-            <p class="text-gray-600 mb-4">Bitte geben Sie den PIN-Code ein, um auf den Administrator-Bereich zuzugreifen.</p>
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-1" for="pinInput">PIN-Code</label>
-                <input autocomplete="new-password" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" id="pinInput" type="password"/>
-                <p class="mt-1 text-sm text-red-600 hidden" id="pinError">Falscher PIN-Code. Bitte versuchen Sie es erneut.</p>
-            </div>
-            <div class="flex justify-end gap-3">
-                <button class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300" id="cancelPin">
-                    Abbrechen
-                </button>
-                <button class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700" id="submitPin">
-                    Anmelden
-                </button>
-            </div>
-        </div>
-    </div>
-    <div class="admin-panel max-w-5xl mx-auto bg-white shadow-md overflow-hidden rounded-b-lg">
-        <div class="p-6">
-            <div class="mb-6">
-                <h3 class="text-lg font-medium text-gray-800 mb-3">Material-Datenbank</h3>
-                <div class="flex flex-col md:flex-row gap-4 items-start md:items-end">
-                    <div class="flex-grow w-full">
-                        <label class="block text-sm font-medium text-gray-700 mb-1" for="materialFile">CSV-Datei mit Materialnummern und Beschreibungen</label>
-                        <input accept=".csv" autocomplete="off" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" id="materialFile" type="file"/>
-                        <p class="mt-1 text-sm text-gray-500">Format: SAP-Nummer;Alternative SAP-Nummer;Beschreibung</p>
-                    </div>
-                    <button class="w-full md:w-auto px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700" id="uploadBtn" type="button">
-                        Hochladen
-                    </button>
-                </div>
-                <div class="mt-2 text-sm font-medium text-gray-600" id="databaseStatus">
-                    Status: Keine Materialdatenbank geladen
-                </div>
-            </div>
-            <div class="mt-6 border-t border-gray-200 pt-6">
-                <h3 class="text-lg font-medium text-gray-800 mb-3">Verwaltung</h3>
-                <div class="flex flex-col sm:flex-row gap-3">
-                    <button class="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700" id="showNormalHistoryAdminBtn" type="button">
-                        Entnahme-Verlauf anzeigen
-                    </button>
-                    <button class="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700" id="showClarificationCasesAdminBtn" type="button">
-                        Klärungsfälle anzeigen
-                    </button>
-                </div>
-            </div>
-            <button class="w-full md:w-auto px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 mt-6 hidden" id="backToAdminPanelBtn" type="button">
-                Zurück zum Administrator-Bereich
-            </button>
-        </div>
-    </div>
-    <div class="terminal-container max-w-5xl mx-auto bg-white shadow-md overflow-hidden rounded-b-lg">
-        <div class="terminal-header p-4 text-white flex justify-between items-center">
-            <h1 class="text-xl md:text-2xl font-bold">Lager-Entnahme Terminal</h1>
-            <div class="text-sm text-right">
-                <span id="current-date"></span> <br class="md:hidden"/> <span id="current-time"></span>
-            </div>
-        </div>
-        <div class="bg-white p-6">
-            <form autocomplete="off" class="space-y-6" id="entnahmeForm">
-                <div class="border-b border-gray-200 pb-4">
-                    <h2 class="text-lg font-medium text-gray-800 mb-3">Mitarbeiterinformationen</h2>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1" for="mitarbeiter">Name des Mitarbeiters</label>
-                            <input autocomplete="off" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" id="mitarbeiter" name="mitarbeiter" required="" type="text"/>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1" for="entnahmedatum">Datum der Entnahme</label>
-                            <input autocomplete="off" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" id="entnahmedatum" name="entnahmedatum" required="" type="date"/>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1" for="vorgesetzter">Name Vorgesetzter</label>
-                            <input autocomplete="off" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" id="vorgesetzter" name="vorgesetzter" type="text"/>
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1" for="kostenstelle">Kostenstelle</label>
-                            <input autocomplete="off" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" id="kostenstelle" name="kostenstelle" type="text"/>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1" for="auftrag">Auftrag</label>
-                            <input autocomplete="off" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" id="auftrag" name="auftrag" type="text"/>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1" for="projektnr">Projekt-Nr.</label>
-                            <input autocomplete="off" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" id="projektnr" name="projektnr" type="text"/>
-                        </div>
-                    </div>
-                </div>
-                <div class="pb-4 mb-4">
-                    <h2 class="text-lg font-medium text-gray-800 mb-3">Material-Entnahme</h2>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full">
-                            <thead>
-                                <tr class="text-left text-gray-600">
-                                    <th class="px-2 py-2 w-1/4">Materialnummer</th>
-                                    <th class="px-2 py-2 w-1/2">Beschreibung</th>
-                                    <th class="px-2 py-2 w-12">ME</th>
-                                    <th class="px-2 py-2 w-20">Menge</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr class="material-row">
-                                    <td class="px-2 py-1" data-label="Materialnummer">
-                                        <div class="material-input-group">
-                                            <input autocomplete="off" class="material-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="material_1" placeholder="Materialnummer" type="text"/>
-                                            <button class="barcode-scan-btn" type="button">
-                                                <i class="fas fa-camera"></i>
-                                            </button>
-                                        </div>
-                                        <input name="primary_material_1" type="hidden"/>
-                                    </td>
-                                    <td class="px-2 py-1" data-label="Beschreibung">
-                                        <input autocomplete="off" class="description-field w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="description_1" placeholder="Beschreibung" type="text"/>
-                                    </td>
-                                    <td class="px-2 py-1" data-label="ME">
-                                        <div class="me-dropdown">
-                                            <input autocomplete="off" class="me-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="me_1" placeholder="ME" type="text"/>
-                                            <div class="me-dropdown-content">
-                                                <div data-text="Stück" data-value="1">1 - Stück</div>
-                                                <div data-text="Kilogramm" data-value="2">2 - Kilogramm</div>
-                                                <div data-text="Meter" data-value="3">3 - Meter</div>
-                                                <div data-text="Liter" data-value="4">4 - Liter</div>
-                                                <div data-text="Raummeter" data-value="5">5 - Raummeter</div>
-                                                <div data-text="Quadratmeter" data-value="6">6 - Quadratmeter</div>
-                                                <div data-text="Trommel" data-value="7">7 - Trommel</div>
-                                                <div data-text="Gitterbox" data-value="8">8 - Gitterbox</div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="px-2 py-1" data-label="Menge">
-                                        <input autocomplete="off" class="menge-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" min="1" name="menge_1" placeholder="Menge" type="number"/>
-                                    </td>
-                                </tr>
-                                <tr class="material-row">
-                                    <td class="px-2 py-1" data-label="Materialnummer">
-                                        <div class="material-input-group">
-                                            <input autocomplete="off" class="material-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="material_2" placeholder="Materialnummer" type="text"/>
-                                            <button class="barcode-scan-btn" type="button">
-                                                <i class="fas fa-camera"></i>
-                                            </button>
-                                        </div>
-                                        <input name="primary_material_2" type="hidden"/>
-                                    </td>
-                                    <td class="px-2 py-1" data-label="Beschreibung">
-                                        <input autocomplete="off" class="description-field w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="description_2" placeholder="Beschreibung" type="text"/>
-                                    </td>
-                                    <td class="px-2 py-1" data-label="ME">
-                                        <div class="me-dropdown">
-                                            <input autocomplete="off" class="me-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="me_2" placeholder="ME" type="text"/>
-                                            <div class="me-dropdown-content">
-                                                <div data-text="Stück" data-value="1">1 - Stück</div>
-                                                <div data-text="Kilogramm" data-value="2">2 - Kilogramm</div>
-                                                <div data-text="Meter" data-value="3">3 - Meter</div>
-                                                <div data-text="Liter" data-value="4">4 - Liter</div>
-                                                <div data-text="Raummeter" data-value="5">5 - Raummeter</div>
-                                                <div data-text="Quadratmeter" data-value="6">6 - Quadratmeter</div>
-                                                <div data-text="Trommel" data-value="7">7 - Trommel</div>
-                                                <div data-text="Gitterbox" data-value="8">8 - Gitterbox</div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="px-2 py-1" data-label="Menge">
-                                        <input autocomplete="off" class="menge-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" min="1" name="menge_2" placeholder="Menge" type="number"/>
-                                    </td>
-                                </tr>
-                                <tr class="material-row">
-                                    <td class="px-2 py-1" data-label="Materialnummer">
-                                        <div class="material-input-group">
-                                            <input autocomplete="off" class="material-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="material_3" placeholder="Materialnummer" type="text"/>
-                                            <button class="barcode-scan-btn" type="button">
-                                                <i class="fas fa-camera"></i>
-                                            </button>
-                                        </div>
-                                        <input name="primary_material_3" type="hidden"/>
-                                    </td>
-                                    <td class="px-2 py-1" data-label="Beschreibung">
-                                        <input autocomplete="off" class="description-field w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="description_3" placeholder="Beschreibung" type="text"/>
-                                    </td>
-                                    <td class="px-2 py-1" data-label="ME">
-                                        <div class="me-dropdown">
-                                            <input autocomplete="off" class="me-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="me_3" placeholder="ME" type="text"/>
-                                            <div class="me-dropdown-content">
-                                                <div data-text="Stück" data-value="1">1 - Stück</div>
-                                                <div data-text="Kilogramm" data-value="2">2 - Kilogramm</div>
-                                                <div data-text="Meter" data-value="3">3 - Meter</div>
-                                                <div data-text="Liter" data-value="4">4 - Liter</div>
-                                                <div data-text="Raummeter" data-value="5">5 - Raummeter</div>
-                                                <div data-text="Quadratmeter" data-value="6">6 - Quadratmeter</div>
-                                                <div data-text="Trommel" data-value="7">7 - Trommel</div>
-                                                <div data-text="Gitterbox" data-value="8">8 - Gitterbox</div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="px-2 py-1" data-label="Menge">
-                                        <input autocomplete="off" class="menge-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" min="1" name="menge_3" placeholder="Menge" type="number"/>
-                                    </td>
-                                </tr>
-                                <tr class="material-row">
-                                    <td class="px-2 py-1" data-label="Materialnummer">
-                                        <div class="material-input-group">
-                                            <input autocomplete="off" class="material-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="material_4" placeholder="Materialnummer" type="text"/>
-                                            <button class="barcode-scan-btn" type="button">
-                                                <i class="fas fa-camera"></i>
-                                            </button>
-                                        </div>
-                                        <input name="primary_material_4" type="hidden"/>
-                                    </td>
-                                    <td class="px-2 py-1" data-label="Beschreibung">
-                                        <input autocomplete="off" class="description-field w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="description_4" placeholder="Beschreibung" type="text"/>
-                                    </td>
-                                    <td class="px-2 py-1" data-label="ME">
-                                        <div class="me-dropdown">
-                                            <input autocomplete="off" class="me-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="me_4" placeholder="ME" type="text"/>
-                                            <div class="me-dropdown-content">
-                                                <div data-text="Stück" data-value="1">1 - Stück</div>
-                                                <div data-text="Kilogramm" data-value="2">2 - Kilogramm</div>
-                                                <div data-text="Meter" data-value="3">3 - Meter</div>
-                                                <div data-text="Liter" data-value="4">4 - Liter</div>
-                                                <div data-text="Raummeter" data-value="5">5 - Raummeter</div>
-                                                <div data-text="Quadratmeter" data-value="6">6 - Quadratmeter</div>
-                                                <div data-text="Trommel" data-value="7">7 - Trommel</div>
-                                                <div data-text="Gitterbox" data-value="8">8 - Gitterbox</div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="px-2 py-1" data-label="Menge">
-                                        <input autocomplete="off" class="menge-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" min="1" name="menge_4" placeholder="Menge" type="number"/>
-                                    </td>
-                                </tr>
-                                <tr class="material-row">
-                                    <td class="px-2 py-1" data-label="Materialnummer">
-                                        <div class="material-input-group">
-                                            <input autocomplete="off" class="material-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="material_5" placeholder="Materialnummer" type="text"/>
-                                            <button class="barcode-scan-btn" type="button">
-                                                <i class="fas fa-camera"></i>
-                                            </button>
-                                        </div>
-                                        <input name="primary_material_5" type="hidden"/>
-                                    </td>
-                                    <td class="px-2 py-1" data-label="Beschreibung">
-                                        <input autocomplete="off" class="description-field w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="description_5" placeholder="Beschreibung" type="text"/>
-                                    </td>
-                                    <td class="px-2 py-1" data-label="ME">
-                                        <div class="me-dropdown">
-                                            <input autocomplete="off" class="me-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="me_5" placeholder="ME" type="text"/>
-                                            <div class="me-dropdown-content">
-                                                <div data-text="Stück" data-value="1">1 - Stück</div>
-                                                <div data-text="Kilogramm" data-value="2">2 - Kilogramm</div>
-                                                <div data-text="Meter" data-value="3">3 - Meter</div>
-                                                <div data-text="Liter" data-value="4">4 - Liter</div>
-                                                <div data-text="Raummeter" data-value="5">5 - Raummeter</div>
-                                                <div data-text="Quadratmeter" data-value="6">6 - Quadratmeter</div>
-                                                <div data-text="Trommel" data-value="7">7 - Trommel</div>
-                                                <div data-text="Gitterbox" data-value="8">8 - Gitterbox</div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="px-2 py-1" data-label="Menge">
-                                        <input autocomplete="off" class="menge-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" min="1" name="menge_5" placeholder="Menge" type="number"/>
-                                    </td>
-                                </tr>
-                                <tr class="material-row">
-                                    <td class="px-2 py-1" data-label="Materialnummer">
-                                        <div class="material-input-group">
-                                            <input autocomplete="off" class="material-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="material_6" placeholder="Materialnummer" type="text"/>
-                                            <button class="barcode-scan-btn" type="button">
-                                                <i class="fas fa-camera"></i>
-                                            </button>
-                                        </div>
-                                        <input name="primary_material_6" type="hidden"/>
-                                    </td>
-                                    <td class="px-2 py-1" data-label="Beschreibung">
-                                        <input autocomplete="off" class="description-field w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="description_6" placeholder="Beschreibung" type="text"/>
-                                    </td>
-                                    <td class="px-2 py-1" data-label="ME">
-                                        <div class="me-dropdown">
-                                            <input autocomplete="off" class="me-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="me_6" placeholder="ME" type="text"/>
-                                            <div class="me-dropdown-content">
-                                                <div data-text="Stück" data-value="1">1 - Stück</div>
-                                                <div data-text="Kilogramm" data-value="2">2 - Kilogramm</div>
-                                                <div data-text="Meter" data-value="3">3 - Meter</div>
-                                                <div data-text="Liter" data-value="4">4 - Liter</div>
-                                                <div data-text="Raummeter" data-value="5">5 - Raummeter</div>
-                                                <div data-text="Quadratmeter" data-value="6">6 - Quadratmeter</div>
-                                                <div data-text="Trommel" data-value="7">7 - Trommel</div>
-                                                <div data-text="Gitterbox" data-value="8">8 - Gitterbox</div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="px-2 py-1" data-label="Menge">
-                                        <input autocomplete="off" class="menge-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" min="1" name="menge_6" placeholder="Menge" type="number"/>
-                                    </td>
-                                </tr>
-                                <tr class="material-row">
-                                    <td class="px-2 py-1" data-label="Materialnummer">
-                                        <div class="material-input-group">
-                                            <input autocomplete="off" class="material-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="material_7" placeholder="Materialnummer" type="text"/>
-                                            <button class="barcode-scan-btn" type="button">
-                                                <i class="fas fa-camera"></i>
-                                            </button>
-                                        </div>
-                                        <input name="primary_material_7" type="hidden"/>
-                                    </td>
-                                    <td class="px-2 py-1" data-label="Beschreibung">
-                                        <input autocomplete="off" class="description-field w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="description_7" placeholder="Beschreibung" type="text"/>
-                                    </td>
-                                    <td class="px-2 py-1" data-label="ME">
-                                        <div class="me-dropdown">
-                                            <input autocomplete="off" class="me-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="me_7" placeholder="ME" type="text"/>
-                                            <div class="me-dropdown-content">
-                                                <div data-text="Stück" data-value="1">1 - Stück</div>
-                                                <div data-text="Kilogramm" data-value="2">2 - Kilogramm</div>
-                                                <div data-text="Meter" data-value="3">3 - Meter</div>
-                                                <div data-text="Liter" data-value="4">4 - Liter</div>
-                                                <div data-text="Raummeter" data-value="5">5 - Raummeter</div>
-                                                <div data-text="Quadratmeter" data-value="6">6 - Quadratmeter</div>
-                                                <div data-text="Trommel" data-value="7">7 - Trommel</div>
-                                                <div data-text="Gitterbox" data-value="8">8 - Gitterbox</div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="px-2 py-1" data-label="Menge">
-                                        <input autocomplete="off" class="menge-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" min="1" name="menge_7" placeholder="Menge" type="number"/>
-                                    </td>
-                                </tr>
-                                <tr class="material-row">
-                                    <td class="px-2 py-1" data-label="Materialnummer">
-                                        <div class="material-input-group">
-                                            <input autocomplete="off" class="material-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="material_8" placeholder="Materialnummer" type="text"/>
-                                            <button class="barcode-scan-btn" type="button">
-                                                <i class="fas fa-camera"></i>
-                                            </button>
-                                        </div>
-                                        <input name="primary_material_8" type="hidden"/>
-                                    </td>
-                                    <td class="px-2 py-1" data-label="Beschreibung">
-                                        <input autocomplete="off" class="description-field w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="description_8" placeholder="Beschreibung" type="text"/>
-                                    </td>
-                                    <td class="px-2 py-1" data-label="ME">
-                                        <div class="me-dropdown">
-                                            <input autocomplete="off" class="me-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="me_8" placeholder="ME" type="text"/>
-                                            <div class="me-dropdown-content">
-                                                <div data-text="Stück" data-value="1">1 - Stück</div>
-                                                <div data-text="Kilogramm" data-value="2">2 - Kilogramm</div>
-                                                <div data-text="Meter" data-value="3">3 - Meter</div>
-                                                <div data-text="Liter" data-value="4">4 - Liter</div>
-                                                <div data-text="Raummeter" data-value="5">5 - Raummeter</div>
-                                                <div data-text="Quadratmeter" data-value="6">6 - Quadratmeter</div>
-                                                <div data-text="Trommel" data-value="7">7 - Trommel</div>
-                                                <div data-text="Gitterbox" data-value="8">8 - Gitterbox</div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="px-2 py-1" data-label="Menge">
-                                        <input autocomplete="off" class="menge-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" min="1" name="menge_8" placeholder="Menge" type="number"/>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <div class="flex flex-col sm:flex-row justify-between pt-4 border-t border-gray-200 gap-3">
-                    <button class="w-full sm:w-auto px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300" id="clearForm" type="button">
-                        Formular zurücksetzen
-                    </button>
-                    <button class="btn-primary w-full sm:w-auto px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-md" type="submit">
-                        Entnahme bestätigen
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-    <div class="history-panel max-w-5xl mx-auto mt-8 bg-white rounded-lg shadow-md overflow-hidden">
-        <div class="bg-gray-800 text-white p-4 flex flex-col sm:flex-row justify-between items-center gap-2">
-            <h2 class="text-xl font-bold">Entnahme-Verlauf</h2>
-            <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                <button class="px-4 py-1 bg-blue-600 hover:bg-blue-700 rounded-md text-sm font-medium" id="exportNormalHistoryBtn">
-                    Als CSV exportieren
-                </button>
-                <button class="px-4 py-1 bg-red-600 hover:bg-red-700 rounded-md text-sm font-medium" id="clearNormalHistoryBtn">
-                    Verlauf löschen
-                </button>
-            </div>
-        </div>
-        <div class="p-4 overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead>
-                    <tr>
-                        <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Datum</th>
-                        <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mitarbeiter</th>
-                        <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Materialien</th>
-                        <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aktionen</th>
-                    </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200" id="normalHistoryList">
-                </tbody>
-            </table>
-            <div class="text-center py-4 text-gray-500" id="emptyNormalHistory">
-                Keine Entnahmen vorhanden
-            </div>
-        </div>
-    </div>
-    <div class="clarification-cases-panel max-w-5xl mx-auto mt-8 bg-white rounded-lg shadow-md overflow-hidden">
-        <div class="bg-gray-800 text-white p-4 flex flex-col sm:flex-row justify-between items-center gap-2">
-            <h2 class="text-xl font-bold">Klärungsfälle</h2>
-            <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                <button class="px-4 py-1 bg-blue-600 hover:bg-blue-700 rounded-md text-sm font-medium" id="exportClarificationCasesBtn">
-                    Als CSV exportieren
-                </button>
-                <button class="px-4 py-1 bg-red-600 hover:bg-red-700 rounded-md text-sm font-medium" id="clearClarificationCasesBtn">
-                    Verlauf löschen
-                </button>
-            </div>
-        </div>
-        <div class="p-4 overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead>
-                    <tr>
-                        <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Datum</th>
-                        <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mitarbeiter</th>
-                        <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Materialien</th>
-                        <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aktionen</th>
-                    </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200" id="clarificationCasesList">
-                </tbody>
-            </table>
-            <div class="text-center py-4 text-gray-500" id="emptyClarificationCases">
-                Keine Klärungsfälle vorhanden
-            </div>
-        </div>
-    </div>
-    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50" id="confirmationDialog">
-        <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 class="text-xl font-bold text-gray-800 mb-4">Entnahme erfolgreich!</h3>
-            <p class="text-gray-600 mb-6">Die Materialentnahme wurde erfolgreich gespeichert.</p>
-            <div class="flex justify-end">
-                <button class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700" id="closeDialog"> Schließen </button>
-            </div>
-        </div>
-    </div>
-    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50" id="deleteConfirmDialog">
-        <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 class="text-xl font-bold text-gray-800 mb-4">Verlauf löschen?</h3>
-            <p class="text-gray-600 mb-6">Möchten Sie wirklich den gesamten Entnahme-Verlauf löschen? Diese Aktion kann nicht rückgängig gemacht werden.</p>
-            <div class="flex justify-end gap-3">
-                <button class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300" id="cancelDelete"> Abbrechen </button>
-                <button class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700" id="confirmDelete"> Löschen </button>
-            </div>
-        </div>
-    </div>
-    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50" id="warningMengeDialog">
-        <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 class="text-xl font-bold text-gray-800 mb-4">Warnung</h3>
-            <p class="text-gray-600 mb-6" id="warningMengeText">Mengenangabe in Zeile X fehlt! Trotzdem übertragen?</p>
-            <div class="flex justify-end gap-3">
-                <button class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300" id="cancelWarningMenge"> Abbrechen </button>
-                <button class="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700" id="confirmWarningMenge"> Trotzdem übertragen </button>
-            </div>
-        </div>
-    </div>
-    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50" id="warningKostenDialog">
-        <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 class="text-xl font-bold text-gray-800 mb-4">Warnung</h3>
-            <p class="text-gray-600 mb-6">Kostenstelle, Auftrag oder Projekt-Nr. fehlt! Trotzdem übertragen?</p>
-            <div class="flex justify-end gap-3">
-                <button class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300" id="cancelWarningKosten"> Abbrechen </button>
-                <button class="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700" id="confirmWarningKosten"> Trotzdem übertragen </button>
-            </div>
-        </div>
-    </div>
-    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50" id="barcodeScannerDialog">
-        <div class="bg-white rounded-lg p-6 max-w-xl w-full mx-4">
-            <h3 class="text-xl font-bold text-gray-800 mb-4">Barcode scannen</h3>
-            <div id="scanner-container">
-                <video id="qr-video"></video>
-                <canvas id="qr-canvas"></canvas>
-            </div>
-            <div class="mt-4 flex justify-between items-center">
-                <span class="text-gray-600" id="scan-result">Bereit zum Scannen...</span>
-                <button class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700" id="closeScanner"> Schließen </button>
-            </div>
-        </div>
-    </div>
+</div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js"></script>
-    <script src="js/script.js"></script>
+<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50" id="pinDialog">
+    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Administrator-Anmeldung</h3>
+        <p class="text-gray-600 mb-4">Bitte geben Sie den PIN-Code ein, um auf den Administrator-Bereich zuzugreifen.</p>
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1" for="pinInput">PIN-Code</label>
+            <input autocomplete="new-password" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" id="pinInput" type="password"/>
+            <p class="mt-1 text-sm text-red-600 hidden" id="pinError">Falscher PIN-Code. Bitte versuchen Sie es erneut.</p>
+        </div>
+        <div class="flex justify-end gap-3">
+            <button class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300" id="cancelPin">Abbrechen</button>
+            <button class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700" id="submitPin">Anmelden</button>
+        </div>
+    </div>
+</div>
+
+<div class="admin-panel max-w-5xl mx-auto bg-white shadow-md overflow-hidden rounded-b-lg">
+    <div class="p-6">
+        <div class="mb-6">
+            <h3 class="text-lg font-medium text-gray-800 mb-3">Material-Datenbank</h3>
+            <div class="flex flex-col md:flex-row gap-4 items-start md:items-end">
+                <div class="flex-grow w-full">
+                    <label class="block text-sm font-medium text-gray-700 mb-1" for="materialFile">CSV-Datei mit SAP-Nummern und Beschreibungen</label>
+                    <input accept=".csv" autocomplete="off" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" id="materialFile" type="file"/>
+                    <p class="mt-1 text-sm text-gray-500">Format: SAP-Nummer;Alternative SAP-Nummer;Beschreibung</p>
+                </div>
+                <button class="w-full md:w-auto px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700" id="uploadBtn" type="button">Hochladen</button>
+            </div>
+            <div class="mt-2 text-sm font-medium text-gray-600" id="databaseStatus">Status: Keine Materialdatenbank geladen</div>
+        </div>
+        <div class="mt-6 border-t border-gray-200 pt-6">
+            <h3 class="text-lg font-medium text-gray-800 mb-3">Verwaltung</h3>
+            <div class="flex flex-col sm:flex-row gap-3">
+                <button class="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700" id="showNormalHistoryAdminBtn" type="button">Entnahme-Verlauf anzeigen</button>
+                <button class="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700" id="showClarificationCasesAdminBtn" type="button">Klärungsfälle anzeigen</button>
+            </div>
+        </div>
+        <button class="w-full md:w-auto px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 mt-6 hidden" id="backToAdminPanelBtn" type="button">Zurück zum Administrator-Bereich</button>
+    </div>
+</div>
+
+<div class="terminal-container max-w-5xl mx-auto bg-white shadow-md overflow-hidden rounded-b-lg">
+    <div class="terminal-header p-4 text-white flex justify-between items-center">
+        <h1 class="text-xl md:text-2xl font-bold">Lager-Entnahme Terminal</h1>
+        <div class="text-sm text-right">
+            <span id="current-date"></span> <br class="md:hidden"/> <span id="current-time"></span>
+        </div>
+    </div>
+    <div class="bg-white p-6">
+        <form autocomplete="off" class="space-y-6" id="entnahmeForm">
+            <div class="border-b border-gray-200 pb-4">
+                <h2 class="text-lg font-medium text-gray-800 mb-3">Mitarbeiterinformationen</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1" for="mitarbeiter">Name des Mitarbeiters</label>
+                        <input autocomplete="off" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" id="mitarbeiter" name="mitarbeiter" required="" type="text"/>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1" for="entnahmedatum">Datum der Entnahme</label>
+                        <input autocomplete="off" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" id="entnahmedatum" name="entnahmedatum" required="" type="date"/>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1" for="vorgesetzter">Name Vorgesetzter</label>
+                        <input autocomplete="off" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" id="vorgesetzter" name="vorgesetzter" type="text"/>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1" for="kostenstelle">Kostenstelle</label>
+                        <input autocomplete="off" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" id="kostenstelle" name="kostenstelle" type="text"/>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1" for="auftrag">Auftrag</label>
+                        <input autocomplete="off" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" id="auftrag" name="auftrag" type="text"/>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1" for="projektnr">Projekt-Nr.</label>
+                        <input autocomplete="off" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" id="projektnr" name="projektnr" type="text"/>
+                    </div>
+                </div>
+            </div>
+            <div class="pb-4 mb-4">
+                <h2 class="text-lg font-medium text-gray-800 mb-3">Material-Entnahme</h2>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full">
+                        <thead>
+                            <tr class="text-left text-gray-600">
+                                <th class="px-2 py-2 w-1/4">SAP-Nr.</th>
+                                <th class="px-2 py-2 w-24">Nachbestellen?</th>
+                                <th class="px-2 py-2 w-1/2">Beschreibung</th>
+                                <th class="px-2 py-2 w-12">ME</th>
+                                <th class="px-2 py-2 w-20">Menge</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="material-row">
+                                <td class="px-2 py-1" data-label="SAP-Nr.">
+                                    <div class="material-input-group">
+                                        <input autocomplete="off" class="material-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="material_1" placeholder="SAP-Nr." type="text"/>
+                                        <button class="barcode-scan-btn" onclick="openBarcodeScanner(1)" type="button"><i class="fas fa-camera"></i></button>
+                                    </div>
+                                    <input name="primary_material_1" type="hidden"/>
+                                </td>
+                                <td class="px-2 py-1 align-middle text-center" data-label="Nachbestellen?">
+                                    <input class="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" name="nachbestellen_1" type="checkbox"/>
+                                </td>
+                                <td class="px-2 py-1" data-label="Beschreibung"><textarea autocomplete="off" class="description-field w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="description_1" placeholder="Beschreibung" rows="2"></textarea></td>
+                                <td class="px-2 py-1" data-label="ME">
+                                    <div class="me-dropdown">
+                                        <input autocomplete="off" class="me-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="me_1" placeholder="ME" type="text"/>
+                                        <div class="me-dropdown-content">
+                                            <div data-text="Stück" data-value="1">1 - Stück</div><div data-text="Kilogramm" data-value="2">2 - Kilogramm</div><div data-text="Meter" data-value="3">3 - Meter</div><div data-text="Liter" data-value="4">4 - Liter</div><div data-text="Raummeter" data-value="5">5 - Raummeter</div><div data-text="Quadratmeter" data-value="6">6 - Quadratmeter</div><div data-text="Trommel" data-value="7">7 - Trommel</div><div data-text="Gitterbox" data-value="8">8 - Gitterbox</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-2 py-1" data-label="Menge"><input autocomplete="off" class="menge-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" min="1" name="menge_1" placeholder="Menge" type="number"/></td>
+                            </tr>
+                           <tr class="material-row hidden">
+                                <td class="px-2 py-1" data-label="SAP-Nr.">
+                                    <div class="material-input-group">
+                                        <input autocomplete="off" class="material-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="material_2" placeholder="SAP-Nr." type="text"/>
+                                        <button class="barcode-scan-btn" onclick="openBarcodeScanner(2)" type="button"><i class="fas fa-camera"></i></button>
+                                    </div>
+                                    <input name="primary_material_2" type="hidden"/>
+                                </td>
+                                <td class="px-2 py-1 align-middle text-center" data-label="Nachbestellen?">
+                                    <input class="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" name="nachbestellen_2" type="checkbox"/>
+                                </td>
+                                <td class="px-2 py-1" data-label="Beschreibung"><textarea autocomplete="off" class="description-field w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="description_2" placeholder="Beschreibung" rows="2"></textarea></td>
+                                <td class="px-2 py-1" data-label="ME">
+                                    <div class="me-dropdown">
+                                        <input autocomplete="off" class="me-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="me_2" placeholder="ME" type="text"/>
+                                        <div class="me-dropdown-content">
+                                            <div data-text="Stück" data-value="1">1 - Stück</div><div data-text="Kilogramm" data-value="2">2 - Kilogramm</div><div data-text="Meter" data-value="3">3 - Meter</div><div data-text="Liter" data-value="4">4 - Liter</div><div data-text="Raummeter" data-value="5">5 - Raummeter</div><div data-text="Quadratmeter" data-value="6">6 - Quadratmeter</div><div data-text="Trommel" data-value="7">7 - Trommel</div><div data-text="Gitterbox" data-value="8">8 - Gitterbox</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-2 py-1" data-label="Menge"><input autocomplete="off" class="menge-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" min="1" name="menge_2" placeholder="Menge" type="number"/></td>
+                            </tr>
+                            <tr class="material-row hidden">
+                                <td class="px-2 py-1" data-label="SAP-Nr.">
+                                    <div class="material-input-group">
+                                        <input autocomplete="off" class="material-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="material_3" placeholder="SAP-Nr." type="text"/>
+                                        <button class="barcode-scan-btn" onclick="openBarcodeScanner(3)" type="button"><i class="fas fa-camera"></i></button>
+                                    </div>
+                                    <input name="primary_material_3" type="hidden"/>
+                                </td>
+                                <td class="px-2 py-1 align-middle text-center" data-label="Nachbestellen?">
+                                    <input class="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" name="nachbestellen_3" type="checkbox"/>
+                                </td>
+                                <td class="px-2 py-1" data-label="Beschreibung"><textarea autocomplete="off" class="description-field w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="description_3" placeholder="Beschreibung" rows="2"></textarea></td>
+                                <td class="px-2 py-1" data-label="ME">
+                                    <div class="me-dropdown">
+                                        <input autocomplete="off" class="me-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="me_3" placeholder="ME" type="text"/>
+                                        <div class="me-dropdown-content">
+                                            <div data-text="Stück" data-value="1">1 - Stück</div><div data-text="Kilogramm" data-value="2">2 - Kilogramm</div><div data-text="Meter" data-value="3">3 - Meter</div><div data-text="Liter" data-value="4">4 - Liter</div><div data-text="Raummeter" data-value="5">5 - Raummeter</div><div data-text="Quadratmeter" data-value="6">6 - Quadratmeter</div><div data-text="Trommel" data-value="7">7 - Trommel</div><div data-text="Gitterbox" data-value="8">8 - Gitterbox</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-2 py-1" data-label="Menge"><input autocomplete="off" class="menge-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" min="1" name="menge_3" placeholder="Menge" type="number"/></td>
+                            </tr>
+                            <tr class="material-row hidden">
+                                <td class="px-2 py-1" data-label="SAP-Nr.">
+                                    <div class="material-input-group">
+                                        <input autocomplete="off" class="material-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="material_4" placeholder="SAP-Nr." type="text"/>
+                                        <button class="barcode-scan-btn" onclick="openBarcodeScanner(4)" type="button"><i class="fas fa-camera"></i></button>
+                                    </div>
+                                    <input name="primary_material_4" type="hidden"/>
+                                </td>
+                                <td class="px-2 py-1 align-middle text-center" data-label="Nachbestellen?">
+                                    <input class="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" name="nachbestellen_4" type="checkbox"/>
+                                </td>
+                                <td class="px-2 py-1" data-label="Beschreibung"><textarea autocomplete="off" class="description-field w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="description_4" placeholder="Beschreibung" rows="2"></textarea></td>
+                                <td class="px-2 py-1" data-label="ME">
+                                    <div class="me-dropdown">
+                                        <input autocomplete="off" class="me-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="me_4" placeholder="ME" type="text"/>
+                                        <div class="me-dropdown-content">
+                                            <div data-text="Stück" data-value="1">1 - Stück</div><div data-text="Kilogramm" data-value="2">2 - Kilogramm</div><div data-text="Meter" data-value="3">3 - Meter</div><div data-text="Liter" data-value="4">4 - Liter</div><div data-text="Raummeter" data-value="5">5 - Raummeter</div><div data-text="Quadratmeter" data-value="6">6 - Quadratmeter</div><div data-text="Trommel" data-value="7">7 - Trommel</div><div data-text="Gitterbox" data-value="8">8 - Gitterbox</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-2 py-1" data-label="Menge"><input autocomplete="off" class="menge-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" min="1" name="menge_4" placeholder="Menge" type="number"/></td>
+                            </tr>
+                             <tr class="material-row hidden">
+                                <td class="px-2 py-1" data-label="SAP-Nr.">
+                                    <div class="material-input-group">
+                                        <input autocomplete="off" class="material-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="material_5" placeholder="SAP-Nr." type="text"/>
+                                        <button class="barcode-scan-btn" onclick="openBarcodeScanner(5)" type="button"><i class="fas fa-camera"></i></button>
+                                    </div>
+                                    <input name="primary_material_5" type="hidden"/>
+                                </td>
+                                <td class="px-2 py-1 align-middle text-center" data-label="Nachbestellen?">
+                                    <input class="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" name="nachbestellen_5" type="checkbox"/>
+                                </td>
+                                <td class="px-2 py-1" data-label="Beschreibung"><textarea autocomplete="off" class="description-field w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="description_5" placeholder="Beschreibung" rows="2"></textarea></td>
+                                <td class="px-2 py-1" data-label="ME">
+                                    <div class="me-dropdown">
+                                        <input autocomplete="off" class="me-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="me_5" placeholder="ME" type="text"/>
+                                        <div class="me-dropdown-content">
+                                            <div data-text="Stück" data-value="1">1 - Stück</div><div data-text="Kilogramm" data-value="2">2 - Kilogramm</div><div data-text="Meter" data-value="3">3 - Meter</div><div data-text="Liter" data-value="4">4 - Liter</div><div data-text="Raummeter" data-value="5">5 - Raummeter</div><div data-text="Quadratmeter" data-value="6">6 - Quadratmeter</div><div data-text="Trommel" data-value="7">7 - Trommel</div><div data-text="Gitterbox" data-value="8">8 - Gitterbox</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-2 py-1" data-label="Menge"><input autocomplete="off" class="menge-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" min="1" name="menge_5" placeholder="Menge" type="number"/></td>
+                            </tr>
+                            <tr class="material-row hidden">
+                                <td class="px-2 py-1" data-label="SAP-Nr.">
+                                    <div class="material-input-group">
+                                        <input autocomplete="off" class="material-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="material_6" placeholder="SAP-Nr." type="text"/>
+                                        <button class="barcode-scan-btn" onclick="openBarcodeScanner(6)" type="button"><i class="fas fa-camera"></i></button>
+                                    </div>
+                                    <input name="primary_material_6" type="hidden"/>
+                                </td>
+                                <td class="px-2 py-1 align-middle text-center" data-label="Nachbestellen?">
+                                    <input class="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" name="nachbestellen_6" type="checkbox"/>
+                                </td>
+                                <td class="px-2 py-1" data-label="Beschreibung"><textarea autocomplete="off" class="description-field w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="description_6" placeholder="Beschreibung" rows="2"></textarea></td>
+                                <td class="px-2 py-1" data-label="ME">
+                                    <div class="me-dropdown">
+                                        <input autocomplete="off" class="me-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="me_6" placeholder="ME" type="text"/>
+                                        <div class="me-dropdown-content">
+                                            <div data-text="Stück" data-value="1">1 - Stück</div><div data-text="Kilogramm" data-value="2">2 - Kilogramm</div><div data-text="Meter" data-value="3">3 - Meter</div><div data-text="Liter" data-value="4">4 - Liter</div><div data-text="Raummeter" data-value="5">5 - Raummeter</div><div data-text="Quadratmeter" data-value="6">6 - Quadratmeter</div><div data-text="Trommel" data-value="7">7 - Trommel</div><div data-text="Gitterbox" data-value="8">8 - Gitterbox</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-2 py-1" data-label="Menge"><input autocomplete="off" class="menge-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" min="1" name="menge_6" placeholder="Menge" type="number"/></td>
+                            </tr>
+                            <tr class="material-row hidden">
+                                <td class="px-2 py-1" data-label="SAP-Nr.">
+                                    <div class="material-input-group">
+                                        <input autocomplete="off" class="material-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="material_7" placeholder="SAP-Nr." type="text"/>
+                                        <button class="barcode-scan-btn" onclick="openBarcodeScanner(7)" type="button"><i class="fas fa-camera"></i></button>
+                                    </div>
+                                    <input name="primary_material_7" type="hidden"/>
+                                </td>
+                                <td class="px-2 py-1 align-middle text-center" data-label="Nachbestellen?">
+                                    <input class="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" name="nachbestellen_7" type="checkbox"/>
+                                </td>
+                                <td class="px-2 py-1" data-label="Beschreibung"><textarea autocomplete="off" class="description-field w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="description_7" placeholder="Beschreibung" rows="2"></textarea></td>
+                                <td class="px-2 py-1" data-label="ME">
+                                    <div class="me-dropdown">
+                                        <input autocomplete="off" class="me-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="me_7" placeholder="ME" type="text"/>
+                                        <div class="me-dropdown-content">
+                                            <div data-text="Stück" data-value="1">1 - Stück</div><div data-text="Kilogramm" data-value="2">2 - Kilogramm</div><div data-text="Meter" data-value="3">3 - Meter</div><div data-text="Liter" data-value="4">4 - Liter</div><div data-text="Raummeter" data-value="5">5 - Raummeter</div><div data-text="Quadratmeter" data-value="6">6 - Quadratmeter</div><div data-text="Trommel" data-value="7">7 - Trommel</div><div data-text="Gitterbox" data-value="8">8 - Gitterbox</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-2 py-1" data-label="Menge"><input autocomplete="off" class="menge-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" min="1" name="menge_7" placeholder="Menge" type="number"/></td>
+                            </tr>
+                            <tr class="material-row hidden">
+                                <td class="px-2 py-1" data-label="SAP-Nr.">
+                                    <div class="material-input-group">
+                                        <input autocomplete="off" class="material-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="material_8" placeholder="SAP-Nr." type="text"/>
+                                        <button class="barcode-scan-btn" onclick="openBarcodeScanner(8)" type="button"><i class="fas fa-camera"></i></button>
+                                    </div>
+                                    <input name="primary_material_8" type="hidden"/>
+                                </td>
+                                <td class="px-2 py-1 align-middle text-center" data-label="Nachbestellen?">
+                                    <input class="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" name="nachbestellen_8" type="checkbox"/>
+                                </td>
+                                <td class="px-2 py-1" data-label="Beschreibung"><textarea autocomplete="off" class="description-field w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="description_8" placeholder="Beschreibung" rows="2"></textarea></td>
+                                <td class="px-2 py-1" data-label="ME">
+                                    <div class="me-dropdown">
+                                        <input autocomplete="off" class="me-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="me_8" placeholder="ME" type="text"/>
+                                        <div class="me-dropdown-content">
+                                            <div data-text="Stück" data-value="1">1 - Stück</div><div data-text="Kilogramm" data-value="2">2 - Kilogramm</div><div data-text="Meter" data-value="3">3 - Meter</div><div data-text="Liter" data-value="4">4 - Liter</div><div data-text="Raummeter" data-value="5">5 - Raummeter</div><div data-text="Quadratmeter" data-value="6">6 - Quadratmeter</div><div data-text="Trommel" data-value="7">7 - Trommel</div><div data-text="Gitterbox" data-value="8">8 - Gitterbox</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-2 py-1" data-label="Menge"><input autocomplete="off" class="menge-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" min="1" name="menge_8" placeholder="Menge" type="number"/></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="flex flex-col sm:flex-row justify-between pt-4 border-t border-gray-200 gap-3">
+                <button class="w-full sm:w-auto px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300" id="clearForm" type="button">Formular zurücksetzen</button>
+                <button class="btn-primary w-full sm:w-auto px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-md" id="submitBtn" type="submit">Entnahme bestätigen</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="history-panel max-w-5xl mx-auto mt-8 bg-white rounded-lg shadow-md overflow-hidden">
+    <div class="bg-gray-800 text-white p-4 flex flex-col sm:flex-row justify-between items-center gap-2">
+        <h2 class="text-xl font-bold">Entnahme-Verlauf</h2>
+        <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <button class="px-4 py-1 bg-blue-600 hover:bg-blue-700 rounded-md text-sm font-medium" id="exportNormalHistoryBtn">Als CSV exportieren</button>
+            <button class="px-4 py-1 bg-red-600 hover:bg-red-700 rounded-md text-sm font-medium" id="clearNormalHistoryBtn">Verlauf löschen</button>
+        </div>
+    </div>
+    <div class="p-4 overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead>
+                <tr>
+                    <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Datum</th>
+                    <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mitarbeiter</th>
+                    <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Materialien</th>
+                    <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aktionen</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200" id="normalHistoryList"></tbody>
+        </table>
+        <div class="text-center py-4 text-gray-500" id="emptyNormalHistory">Keine Entnahmen vorhanden</div>
+    </div>
+</div>
+
+<div class="clarification-cases-panel max-w-5xl mx-auto mt-8 bg-white rounded-lg shadow-md overflow-hidden">
+    <div class="bg-gray-800 text-white p-4 flex flex-col sm:flex-row justify-between items-center gap-2">
+        <h2 class="text-xl font-bold">Klärungsfälle</h2>
+        <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <button class="px-4 py-1 bg-blue-600 hover:bg-blue-700 rounded-md text-sm font-medium" id="exportClarificationCasesBtn">Als CSV exportieren</button>
+            <button class="px-4 py-1 bg-red-600 hover:bg-red-700 rounded-md text-sm font-medium" id="clearClarificationCasesBtn">Verlauf löschen</button>
+        </div>
+    </div>
+    <div class="p-4 overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead>
+                <tr>
+                    <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Datum</th>
+                    <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mitarbeiter</th>
+                    <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Materialien</th>
+                    <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aktionen</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200" id="clarificationCasesList"></tbody>
+        </table>
+        <div class="text-center py-4 text-gray-500" id="emptyClarificationCases">Keine Klärungsfälle vorhanden</div>
+    </div>
+</div>
+
+<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50" id="confirmationDialog">
+    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Entnahme erfolgreich!</h3>
+        <p class="text-gray-600 mb-6">Die Materialentnahme wurde erfolgreich gespeichert.</p>
+        <div class="flex justify-end"><button class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700" id="closeDialog">Schließen</button></div>
+    </div>
+</div>
+<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50" id="deleteConfirmDialog">
+    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Verlauf löschen?</h3>
+        <p class="text-gray-600 mb-6">Möchten Sie wirklich den gesamten Entnahme-Verlauf löschen? Diese Aktion kann nicht rückgängig gemacht werden.</p>
+        <div class="flex justify-end gap-3">
+            <button class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300" id="cancelDelete">Abbrechen</button>
+            <button class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700" id="confirmDelete">Löschen</button>
+        </div>
+    </div>
+</div>
+<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50" id="warningMengeDialog">
+    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Warnung</h3>
+        <p class="text-gray-600 mb-6" id="warningMengeText">Mengenangabe in Zeile X fehlt! Trotzdem übertragen?</p>
+        <div class="flex justify-end gap-3">
+            <button class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300" id="cancelWarningMenge">Abbrechen</button>
+            <button class="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700" id="confirmWarningMenge">Trotzdem übertragen</button>
+        </div>
+    </div>
+</div>
+<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50" id="warningKostenDialog">
+    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Warnung</h3>
+        <p class="text-gray-600 mb-6">Kostenstelle, Auftrag oder Projekt-Nr. fehlt! Trotzdem übertragen?</p>
+        <div class="flex justify-end gap-3">
+            <button class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300" id="cancelWarningKosten">Abbrechen</button>
+            <button class="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700" id="confirmWarningKosten">Trotzdem übertragen</button>
+        </div>
+    </div>
+</div>
+<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50" id="sapTransferDialog">
+    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">SAP Übertragung</h3>
+        <p class="text-gray-600 mb-4">Übertrage Daten in SAP (MIGO - Warenausgang)...</p>
+        <div class="w-full bg-gray-200 rounded-full h-2.5 mb-6"><div class="bg-blue-600 h-2.5 rounded-full" id="sapTransferProgress" style="width: 0%"></div></div>
+        <div class="text-sm text-gray-600 mb-4" id="sapTransferStatus">Initialisiere Übertragung...</div>
+        <div class="flex justify-end"><button class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 hidden" id="closeSapDialog">Schließen</button></div>
+    </div>
+</div>
+<div class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center hidden z-50" id="barcodeScannerDialog">
+    <div class="bg-white rounded-lg p-4 max-w-lg w-full mx-4 relative">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Barcode scannen</h3>
+        <button class="absolute top-3 right-3 text-gray-600 hover:text-gray-900 text-2xl" id="closeScannerDialog">×</button>
+        <div class="w-full h-64 md:h-80 relative bg-gray-800 rounded-md overflow-hidden" id="scanner-container">
+            <video class="w-full h-full object-cover" id="qr-video"></video>
+            <canvas class="absolute inset-0 w-full h-full" id="qr-canvas" style="display: none;"></canvas>
+        </div>
+        <p class="mt-4 text-gray-700 text-center" id="scanner-status">Kamera wird gestartet...</p>
+    </div>
+</div>
+
+<script src="script.js"></script>
+
 </body>
 </html>
