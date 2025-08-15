@@ -134,9 +134,16 @@ body {
         width: 100%; /* Ensure table takes full width */
         display: block;
     }
-    .overflow-x-auto thead, .overflow-x-auto tbody, .overflow-x-auto th, .overflow-x-auto td, .overflow-x-auto tr {
+    .overflow-x-auto thead, .overflow-x-auto tbody, .overflow-x-auto th, .overflow-x-auto td {
         display: block;
     }
+    
+    /* === HIER IST DIE ÄNDERUNG === */
+    /* Die Regel wird nur auf Zeilen angewendet, die NICHT die Klasse 'hidden' haben. */
+    .overflow-x-auto tr:not(.hidden) {
+        display: block;
+    }
+    
     .overflow-x-auto thead tr {
         position: absolute;
         top: -9999px;
