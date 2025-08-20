@@ -29,11 +29,15 @@ let clarificationCasesData = [];
 const ADMIN_PIN = "100400#x"; // Admin PIN-Code
 let pendingSubmitData = null; // Für die Warndialoge
 let isInAdminMode = false; // Track admin mode state
+const MAX_MATERIAL_ROWS = 100; // Maximale Anzahl an Materialzeilen
+let materialRowCount = 0; // Zähler für die aktuellen Materialzeilen
+
 
 // Barcode Scanner Variablen
 let codeReader = null; // Instanz des ZXing CodeReader
 let currentMaterialInput = null; // Speichert das Input-Feld, das gerade gescannt werden soll
 let localStream = null; // Hält den aktiven Kamera-Stream
+
 // Datum und Uhrzeit aktualisieren
 function updateDateTime() {
     const now = new Date();
@@ -89,6 +93,193 @@ function uploadMaterialDatabase(event) {
     }
 }
 
+// --- START: DYNAMISCHE ZEILEN FUNKTIONEN ---
+
+// Erstellt eine neue Materialzeile und gibt das TR-Element zurück
+function createMaterialRow() {
+    if (materialRowCount >= MAX_MATERIAL_ROWS) return null;
+    materialRowCount++;
+
+    const row = document.createElement('tr');
+    row.classList.add('material-row');
+    row.innerHTML = `
+        <td class="px-2 py-1" data-label="SAP-Nr.">
+            <div class="material-input-group">
+                <input autocomplete="off" class="material-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="material_${materialRowCount}" placeholder="SAP-Nr." type="text"/>
+                <button class="barcode-scan-btn" onclick="openBarcodeScanner(${materialRowCount})" type="button"><i class="fas fa-camera"></i></button>
+            </div>
+            <input name="primary_material_${materialRowCount}" type="hidden"/>
+        </td>
+        <td class="px-2 py-1" data-label="Nachbestellen?">
+             <div class="flex items-center justify-center h-full">
+                <input type="checkbox" class="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" name="nachbestellen_${materialRowCount}">
+            </div>
+        </td>
+        <td class="px-2 py-1" data-label="Beschreibung"><textarea autocomplete="off" class="description-field w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="description_${materialRowCount}" placeholder="Beschreibung" rows="2"></textarea></td>
+        <td class="px-2 py-1" data-label="ME">
+            <div class="me-dropdown">
+                <input autocomplete="off" class="me-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" name="me_${materialRowCount}" placeholder="ME" type="text"/>
+                <div class="me-dropdown-content">
+                    <div data-text="Stück" data-value="1">1 - Stück</div><div data-text="Kilogramm" data-value="2">2 - Kilogramm</div><div data-text="Meter" data-value="3">3 - Meter</div><div data-text="Liter" data-value="4">4 - Liter</div><div data-text="Raummeter" data-value="5">5 - Raummeter</div><div data-text="Quadratmeter" data-value="6">6 - Quadratmeter</div><div data-text="Trommel" data-value="7">7 - Trommel</div><div data-text="Gitterbox" data-value="8">8 - Gitterbox</div>
+                </div>
+            </div>
+        </td>
+        <td class="px-2 py-1" data-label="Menge"><input autocomplete="off" class="menge-input w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" min="1" name="menge_${materialRowCount}" placeholder="Menge" type="number"/></td>
+    `;
+
+    // Füge Event-Listener zu den neuen Elementen hinzu
+    addRowEventListeners(row);
+    return row;
+}
+
+// Fügt eine neue Zeile hinzu, wenn nötig
+function addRowIfNeeded() {
+    const tbody = document.getElementById('material-tbody');
+    const lastRow = tbody.querySelector('tr:last-child');
+    if (!lastRow) return; // Sollte nicht passieren, aber sicher ist sicher
+
+    const materialInput = lastRow.querySelector('.material-input');
+    const descriptionInput = lastRow.querySelector('.description-field');
+
+    if (materialInput.value.trim() !== '' || descriptionInput.value.trim() !== '') {
+        const newRow = createMaterialRow();
+        if (newRow) {
+            tbody.appendChild(newRow);
+        }
+    }
+}
+
+// Bündelt das Hinzufügen aller Event-Listener für eine Zeile
+function addRowEventListeners(rowElement) {
+    // Event-Listener, um bei Eingabe eine neue Zeile zu erzeugen
+    const materialInput = rowElement.querySelector('.material-input');
+    const descriptionField = rowElement.querySelector('.description-field');
+    
+    materialInput.addEventListener('input', addRowIfNeeded);
+    descriptionField.addEventListener('input', addRowIfNeeded);
+    
+    // Bestehende Event-Listener
+    materialInput.addEventListener('blur', function() { checkMaterialNumber(this); });
+    materialInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            checkMaterialNumber(this);
+        }
+    });
+
+    descriptionField.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const rowNumber = parseInt(this.name.split('_')[1]);
+            rowElement.querySelector(`[name="menge_${rowNumber}"]`).focus();
+        }
+    });
+    
+    descriptionField.addEventListener('blur', function() {
+        if (this.value.trim()) {
+            const rowNumber = parseInt(this.name.split('_')[1]);
+            const meInput = rowElement.querySelector(`[name="me_${rowNumber}"]`);
+            meInput.focus();
+            meInput.parentElement.classList.add('show');
+        }
+    });
+
+    rowElement.querySelectorAll('.me-dropdown-content div').forEach(option => {
+        option.addEventListener('click', function() {
+            const value = this.getAttribute('data-value');
+            const text = this.getAttribute('data-text');
+            const dropdown = this.closest('.me-dropdown');
+            const inputField = dropdown.querySelector('.me-input');
+            inputField.value = text;
+            inputField.setAttribute('data-value', value);
+            dropdown.classList.remove('show');
+            this.parentElement.querySelectorAll('.highlighted').forEach(h => h.classList.remove('highlighted'));
+            const rowNumber = parseInt(inputField.name.split('_')[1]);
+            rowElement.querySelector(`[name="menge_${rowNumber}"]`).focus();
+        });
+    });
+
+    const mengeInput = rowElement.querySelector('.menge-input');
+    mengeInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const lastRowInput = document.querySelector('#material-tbody tr:last-child .material-input');
+            if (lastRowInput) {
+                lastRowInput.focus();
+            }
+        }
+    });
+
+    const meInput = rowElement.querySelector('.me-input');
+    const handleMEInput = (meInputField) => {
+        const value = meInputField.value.trim();
+        meInputField.classList.remove('error');
+        if (value === '') { meInputField.setAttribute('data-value', ''); return true; }
+        const option = meInputField.nextElementSibling.querySelector(`[data-value="${value}"], [data-text="${value}"]`);
+        if (option) { 
+            meInputField.value = option.getAttribute('data-text');
+            meInputField.setAttribute('data-value', option.getAttribute('data-value'));
+            return true; 
+        } else { 
+            meInputField.value = ''; 
+            meInputField.setAttribute('data-value', ''); 
+            meInputField.classList.add('error'); 
+            return false; 
+        }
+    };
+    meInput.addEventListener('click', function() {
+        const currentDropdown = this.parentElement;
+        document.querySelectorAll('.me-dropdown.show').forEach(d => { if (d !== currentDropdown) d.classList.remove('show'); });
+        currentDropdown.classList.toggle('show');
+    });
+    meInput.addEventListener('keydown', function(e) {
+        const dropdown = this.parentElement;
+        const dropdownContent = dropdown.querySelector('.me-dropdown-content');
+        if (e.key !== 'Tab' && !dropdown.classList.contains('show')) {
+             if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); dropdown.classList.add('show'); }
+        }
+        const options = Array.from(dropdownContent.querySelectorAll('div'));
+        if (options.length === 0) return;
+        const highlightedIndex = options.findIndex(opt => opt.classList.contains('highlighted'));
+        switch (e.key) {
+            case 'ArrowDown':
+                e.preventDefault();
+                if (highlightedIndex < options.length - 1) {
+                    if (highlightedIndex > -1) options[highlightedIndex].classList.remove('highlighted');
+                    const newIndex = highlightedIndex + 1;
+                    options[newIndex].classList.add('highlighted');
+                    options[newIndex].scrollIntoView({ block: 'nearest' });
+                }
+                break;
+            case 'ArrowUp':
+                e.preventDefault();
+                if (highlightedIndex > 0) {
+                    options[highlightedIndex].classList.remove('highlighted');
+                    const newIndex = highlightedIndex - 1;
+                    options[newIndex].classList.add('highlighted');
+                    options[newIndex].scrollIntoView({ block: 'nearest' });
+                }
+                break;
+            case 'Enter':
+                e.preventDefault();
+                if (highlightedIndex > -1) { 
+                    options[highlightedIndex].click(); 
+                } else {
+                    if (handleMEInput(this)) {
+                        dropdown.classList.remove('show');
+                        const rowNumber = parseInt(this.name.split('_')[1]);
+                        rowElement.querySelector(`[name="menge_${rowNumber}"]`).focus();
+                    }
+                }
+                break;
+            case 'Escape': e.preventDefault(); dropdown.classList.remove('show'); break;
+        }
+    });
+    meInput.addEventListener('blur', function() { handleMEInput(this); setTimeout(() => this.parentElement.classList.remove('show'), 150); });
+}
+
+// --- ENDE: DYNAMISCHE ZEILEN FUNKTIONEN ---
+
 
 // Initialisierung
 document.addEventListener('DOMContentLoaded', function() {
@@ -102,141 +293,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Gespeicherte Daten laden
     loadAllData();
     
-    // HINZUGEFÜGT: Event-Listener für manuellen Upload
+    // Event-Listener für manuellen Upload
     document.getElementById('materialFile').addEventListener('change', uploadMaterialDatabase);
-    
-    // SAP-Nr.-Eingabe-Event für automatische Beschreibung und Enter-Taste
-    document.querySelectorAll('.material-input').forEach(input => {
-        input.addEventListener('blur', function() { checkMaterialNumber(this); });
-        input.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                checkMaterialNumber(this);
-                // Der Fokus wird nun durch checkMaterialNumber() zum ME-Feld gesetzt
-            }
-        });
-    });
-    
-    // --- ANGEPASST: Beschreibungs-Feld-Events ---
-    document.querySelectorAll('.description-field').forEach(input => {
-        input.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                const rowNumber = parseInt(this.name.split('_')[1]);
-                document.querySelector(`[name="menge_${rowNumber}"]`).focus();
-            }
-        });
-        
-        // Bei Verlassen des Feldes (blur), wenn Text vorhanden ist, zum ME-Feld springen.
-        input.addEventListener('blur', function() {
-            if (this.value.trim()) {
-                const rowNumber = parseInt(this.name.split('_')[1]);
-                const meInput = document.querySelector(`[name="me_${rowNumber}"]`);
-                meInput.focus();
-                meInput.parentElement.classList.add('show');
-            }
-        });
-    });
-    // --- ENDE ANPASSUNG ---
 
-    // Mengeneinheit-Dropdown-Funktionalität (per Klick)
-    document.querySelectorAll('.me-dropdown-content div').forEach(option => {
-        option.addEventListener('click', function() {
-            const value = this.getAttribute('data-value');
-            const text = this.getAttribute('data-text');
-            const dropdown = this.closest('.me-dropdown');
-            const inputField = dropdown.querySelector('.me-input');
-            inputField.value = text; // Zeigt den Text an
-            inputField.setAttribute('data-value', value); // Speichert den Code
-            dropdown.classList.remove('show');
-            this.parentElement.querySelectorAll('.highlighted').forEach(h => h.classList.remove('highlighted'));
-            const rowNumber = parseInt(inputField.name.split('_')[1]);
-            document.querySelector(`[name="menge_${rowNumber}"]`).focus();
-        });
-    });
-    
-    // Menge-Eingabe-Events
-    document.querySelectorAll('.menge-input').forEach(input => {
-        input.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                const rowNumber = parseInt(this.name.split('_')[1]);
-                findNextEmptyMaterialRow(rowNumber);
-            }
-        });
-    });
-
-    // Event-Listener für die ME-Eingabefelder (Tastatur & Klick)
-    document.querySelectorAll('.me-input').forEach(input => {
-        const handleMEInput = (meInputField) => {
-            const value = meInputField.value.trim();
-            meInputField.classList.remove('error');
-            if (value === '') { meInputField.setAttribute('data-value', ''); return true; }
-            
-            // Suche nach Text oder Code
-            const option = meInputField.nextElementSibling.querySelector(`[data-value="${value}"], [data-text="${value}"]`);
-
-            if (option) { 
-                meInputField.value = option.getAttribute('data-text');
-                meInputField.setAttribute('data-value', option.getAttribute('data-value'));
-                return true; 
-            } else { 
-                meInputField.value = ''; 
-                meInputField.setAttribute('data-value', ''); 
-                meInputField.classList.add('error'); 
-                return false; 
-            }
-        };
-        input.addEventListener('click', function() {
-            const currentDropdown = this.parentElement;
-            document.querySelectorAll('.me-dropdown.show').forEach(d => { if (d !== currentDropdown) d.classList.remove('show'); });
-            currentDropdown.classList.toggle('show');
-        });
-        input.addEventListener('keydown', function(e) {
-            const dropdown = this.parentElement;
-            const dropdownContent = dropdown.querySelector('.me-dropdown-content');
-            if (e.key !== 'Tab' && !dropdown.classList.contains('show')) {
-                 if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); dropdown.classList.add('show'); }
-            }
-            const options = Array.from(dropdownContent.querySelectorAll('div'));
-            if (options.length === 0) return;
-            const highlightedIndex = options.findIndex(opt => opt.classList.contains('highlighted'));
-            switch (e.key) {
-                case 'ArrowDown':
-                    e.preventDefault();
-                    if (highlightedIndex < options.length - 1) {
-                        if (highlightedIndex > -1) options[highlightedIndex].classList.remove('highlighted');
-                        const newIndex = highlightedIndex + 1;
-                        options[newIndex].classList.add('highlighted');
-                        options[newIndex].scrollIntoView({ block: 'nearest' });
-                    }
-                    break;
-                case 'ArrowUp':
-                    e.preventDefault();
-                    if (highlightedIndex > 0) {
-                        options[highlightedIndex].classList.remove('highlighted');
-                        const newIndex = highlightedIndex - 1;
-                        options[newIndex].classList.add('highlighted');
-                        options[newIndex].scrollIntoView({ block: 'nearest' });
-                    }
-                    break;
-                case 'Enter':
-                    e.preventDefault();
-                    if (highlightedIndex > -1) { 
-                        options[highlightedIndex].click(); 
-                    } else {
-                        if (handleMEInput(this)) {
-                            dropdown.classList.remove('show');
-                            const rowNumber = parseInt(this.name.split('_')[1]);
-                            document.querySelector(`[name="menge_${rowNumber}"]`).focus();
-                        }
-                    }
-                    break;
-                case 'Escape': e.preventDefault(); dropdown.classList.remove('show'); break;
-            }
-        });
-        input.addEventListener('blur', function() { handleMEInput(this); setTimeout(() => this.parentElement.classList.remove('show'), 150); });
-    });
+    // Initial eine leere Zeile hinzufügen
+    const initialRow = createMaterialRow();
+    document.getElementById('material-tbody').appendChild(initialRow);
     
     // Formular zurücksetzen Button
     document.getElementById('clearForm').addEventListener('click', resetForm);
@@ -245,15 +307,15 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('entnahmeForm').addEventListener('submit', function(e) {
         e.preventDefault();
         let hasAtLeastOneValidRow = false;
-        for (let i = 1; i <= 8; i++) {
-            const materialInput = document.querySelector(`[name="material_${i}"]`);
-            const mengeInput = document.querySelector(`[name="menge_${i}"]`);
-            const descriptionInput = document.querySelector(`[name="description_${i}"]`);
+        
+        document.querySelectorAll('.material-row').forEach(row => {
+            const materialInput = row.querySelector('.material-input');
+            const mengeInput = row.querySelector('.menge-input');
+            const descriptionInput = row.querySelector('.description-field');
             if (mengeInput.value.trim() !== '' && (materialInput.value.trim() !== '' || descriptionInput.value.trim() !== '')) {
                 hasAtLeastOneValidRow = true;
-                break;
             }
-        }
+        });
 
         if (!hasAtLeastOneValidRow) {
             alert('Fehler: Es muss mindestens eine Zeile mit SAP-Nr./Beschreibung UND Menge ausgefüllt sein.');
@@ -295,7 +357,6 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('exportNormalHistoryBtn').addEventListener('click', exportNormalHistoryToCSV);
     document.getElementById('clearNormalHistoryBtn').addEventListener('click', () => {
         if (confirm('Möchten Sie wirklich den gesamten Entnahme-Verlauf löschen? Diese Aktion kann nicht rückgängig gemacht werden.')) {
-            // Firestore Batch-Löschung
             const batch = db.batch();
             normalHistoryData.forEach(entry => {
                 const docRef = db.collection("entnahmen").doc(entry.id);
@@ -309,7 +370,6 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('exportClarificationCasesBtn').addEventListener('click', exportClarificationCasesToCSV);
     document.getElementById('clearClarificationCasesBtn').addEventListener('click', () => {
         if (confirm('Möchten Sie wirklich alle Klärungsfälle löschen? Diese Aktion kann nicht rückgängig gemacht werden.')) {
-            // Firestore Batch-Löschung
             const batch = db.batch();
             clarificationCasesData.forEach(entry => {
                 const docRef = db.collection("klaerungsfaelle").doc(entry.id);
@@ -339,7 +399,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('pinDialog').classList.remove('hidden');
             document.getElementById('pinInput').focus();
         } else {
-            setActiveMenuItem('adminMenuItem'); // Already in admin mode, just switch to main admin panel
+            setActiveMenuItem('adminMenuItem');
         }
     });
 
@@ -377,20 +437,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Close scanner dialog
     document.getElementById('closeScannerDialog').addEventListener('click', closeBarcodeScanner);
 });
-
-function findNextEmptyMaterialRow(currentRow) {
-    let nextRow = currentRow;
-    while (nextRow < 8) {
-        nextRow++;
-        const materialInput = document.querySelector(`[name="material_${nextRow}"]`);
-        const mengeInput = document.querySelector(`[name="menge_${nextRow}"]`);
-        if (!materialInput.value && !mengeInput.value) { 
-            materialInput.focus();
-            return;
-        }
-    }
-    document.querySelector('[name="material_1"]').focus();
-}
 
 function checkPin() {
     const pinInput = document.getElementById('pinInput');
@@ -434,11 +480,11 @@ function setActiveMenuItem(itemId) {
     }
 }
 
-// --- ANGEPASST: checkMaterialNumber ---
 function checkMaterialNumber(inputElement) {
+    const row = inputElement.closest('.material-row');
     const rowNumber = inputElement.name.split('_')[1];
-    const descriptionField = document.querySelector(`[name="description_${rowNumber}"]`);
-    const primaryField = document.querySelector(`[name="primary_material_${rowNumber}"]`);
+    const descriptionField = row.querySelector(`[name="description_${rowNumber}"]`);
+    const primaryField = row.querySelector(`[name="primary_material_${rowNumber}"]`);
     descriptionField.classList.remove('auto-filled', 'error');
     inputElement.classList.remove('error');
 
@@ -460,8 +506,7 @@ function checkMaterialNumber(inputElement) {
             primaryField.value = '';
         }
         
-        // Springe zum ME-Feld und öffne das Dropdown.
-        const meInput = document.querySelector(`[name="me_${rowNumber}"]`);
+        const meInput = row.querySelector(`[name="me_${rowNumber}"]`);
         meInput.focus();
         meInput.parentElement.classList.add('show');
 
@@ -470,10 +515,8 @@ function checkMaterialNumber(inputElement) {
         descriptionField.value = ''; 
     }
 }
-// --- ENDE ANPASSUNG ---
 
 function loadAllData() {
-    // KORRIGIERT: CSV-Datei von GitHub laden mit vollständiger URL
     const csvUrl = 'https://raw.githubusercontent.com/Dennis21x/lager-terminal-data/main/Terminaldaten.csv';
     document.getElementById('databaseStatus').textContent = 'Status: Lade Materialdatenbank von GitHub...';
     
@@ -489,7 +532,7 @@ function loadAllData() {
                 delimiter: ';', 
                 header: false, 
                 skipEmptyLines: true,
-                complete: processMaterialData // Verwende die ausgelagerte Funktion
+                complete: processMaterialData
             });
         })
         .catch(error => {
@@ -498,7 +541,6 @@ function loadAllData() {
             alert("Die Materialdatenbank konnte nicht automatisch geladen werden. Bitte laden Sie die CSV-Datei manuell im Admin-Bereich hoch.");
         });
 
-    // Echtzeit-Listener für normale Entnahmen
     db.collection("entnahmen").orderBy("timestamp", "desc").onSnapshot(snapshot => {
         normalHistoryData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         updateNormalHistoryTable();
@@ -506,7 +548,6 @@ function loadAllData() {
         console.error("Fehler beim Laden des normalen Verlaufs: ", err);
     });
 
-    // Echtzeit-Listener für Klärungsfälle
     db.collection("klaerungsfaelle").orderBy("timestamp", "desc").onSnapshot(snapshot => {
         clarificationCasesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         updateClarificationCasesTable();
@@ -517,15 +558,16 @@ function loadAllData() {
 
 function validateForm() {
     const result = { missingMenge: [], missingKosten: false };
-    for (let i = 1; i <= 8; i++) {
-        const materialNrInput = document.querySelector(`[name="material_${i}"]`);
-        const mengeInput = document.querySelector(`[name="menge_${i}"]`);
-        const descriptionInput = document.querySelector(`[name="description_${i}"]`);
+    document.querySelectorAll('.material-row').forEach((row, index) => {
+        const materialNrInput = row.querySelector('.material-input');
+        const mengeInput = row.querySelector('.menge-input');
+        const descriptionInput = row.querySelector('.description-field');
 
         if ((materialNrInput.value.trim() !== '' || descriptionInput.value.trim() !== '') && mengeInput.value.trim() === '') {
-            result.missingMenge.push(i);
+            result.missingMenge.push(index + 1); // Zeilennummer ist 1-basiert
         }
-    }
+    });
+    
     const kostenstelle = document.getElementById('kostenstelle').value.trim();
     const auftrag = document.getElementById('auftrag').value.trim();
     const projektnr = document.getElementById('projektnr').value.trim();
@@ -535,28 +577,30 @@ function validateForm() {
 
 function collectFormData() {
     const materialien = [];
-    for (let i = 1; i <= 8; i++) {
-        const materialNrInput = document.querySelector(`[name="material_${i}"]`);
-        const primaryNrInput = document.querySelector(`[name="primary_material_${i}"]`);
-        const beschreibungInput = document.querySelector(`[name="description_${i}"]`);
-        const mengeInput = document.querySelector(`[name="menge_${i}"]`);
-        const meInput = document.querySelector(`[name="me_${i}"]`);
+    document.querySelectorAll('#material-tbody .material-row').forEach(row => {
+        const materialNrInput = row.querySelector('.material-input');
+        const primaryNrInput = row.querySelector('input[type="hidden"]');
+        const beschreibungInput = row.querySelector('.description-field');
+        const mengeInput = row.querySelector('.menge-input');
+        const meInput = row.querySelector('.me-input');
+        const nachbestellenCheckbox = row.querySelector('input[type="checkbox"]');
 
         const materialNr = materialNrInput.value.trim();
-        const primaryNrFromLookup = primaryNrInput.value.trim();
         const beschreibung = beschreibungInput.value.trim();
         const menge = mengeInput.value.trim();
-
+        
         if (materialNr !== '' || beschreibung !== '' || menge !== '') {
             materialien.push({
-                materialNr: primaryNrFromLookup,
+                materialNr: primaryNrInput.value.trim(),
                 eingabeNr: materialNr,
                 beschreibung: beschreibung,
                 menge: menge !== '' ? parseFloat(menge) : 0,
-                me: { code: meInput.getAttribute('data-value') || '', text: meInput.value || '' }
+                me: { code: meInput.getAttribute('data-value') || '', text: meInput.value || '' },
+                nachbestellen: nachbestellenCheckbox.checked
             });
         }
-    }
+    });
+    
     return {
         mitarbeiter: document.getElementById('mitarbeiter').value,
         entnahmedatum: document.getElementById('entnahmedatum').value,
@@ -567,6 +611,7 @@ function collectFormData() {
         materialien
     };
 }
+
 
 function isClarificationCase(formData) {
     const kostenstelle = formData.kostenstelle;
@@ -606,9 +651,14 @@ function resetForm() {
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('entnahmeForm').reset();
     document.getElementById('entnahmedatum').value = today;
-    document.querySelectorAll('.description-field, .me-input, .material-input').forEach(f => f.classList.remove('auto-filled', 'error'));
-    document.querySelectorAll('input[name^="primary_material_"]').forEach(f => { f.value = ''; });
-    document.querySelectorAll('.me-input').forEach(f => { f.value = ''; f.removeAttribute('data-value'); });
+    
+    const tbody = document.getElementById('material-tbody');
+    tbody.innerHTML = '';
+    materialRowCount = 0;
+    
+    const firstRow = createMaterialRow();
+    tbody.appendChild(firstRow);
+    
     document.getElementById('mitarbeiter').focus();
 }
 
@@ -634,6 +684,9 @@ function updateNormalHistoryTable() {
                 .map(m => {
                     let text = m.materialNr ? `${m.materialNr} - ${m.beschreibung}` : (m.eingabeNr || m.beschreibung);
                     text += ` (${m.menge} ${m.me.text || ''})`;
+                    if(m.nachbestellen) {
+                        text += ` <span class="text-blue-600 font-bold">[Nachbestellen]</span>`;
+                    }
                     return text;
                 }).join('<br>');
             
@@ -674,6 +727,9 @@ function updateClarificationCasesTable() {
                  .map(m => {
                     let text = m.materialNr ? `${m.materialNr} - ${m.beschreibung}` : `<span class="text-red-600 font-bold">${m.eingabeNr || m.beschreibung}</span>`;
                     text += ` (${m.menge || 0} ${m.me.text || ''})`;
+                    if(m.nachbestellen) {
+                        text += ` <span class="text-blue-600 font-bold">[Nachbestellen]</span>`;
+                    }
                     return text;
                 }).join('<br>');
 
@@ -707,7 +763,7 @@ function editEntry(id, type) {
         return;
     }
 
-    resetForm();
+    resetForm(); // Leert das Formular und bereitet es für neue Daten vor
 
     document.getElementById('mitarbeiter').value = entry.mitarbeiter;
     document.getElementById('entnahmedatum').value = entry.entnahmedatum;
@@ -716,20 +772,32 @@ function editEntry(id, type) {
     document.getElementById('auftrag').value = entry.auftrag || '';
     document.getElementById('projektnr').value = entry.projektnr || '';
 
-    entry.materialien.forEach((material, i) => {
-        const rowNum = i + 1;
-        if (rowNum > 8) return; 
+    const tbody = document.getElementById('material-tbody');
+    tbody.innerHTML = ''; // Alle vorhandenen Zeilen entfernen
+    materialRowCount = 0;
 
-        document.querySelector(`[name="material_${rowNum}"]`).value = material.eingabeNr || '';
-        document.querySelector(`[name="primary_material_${rowNum}"]`).value = material.materialNr || '';
-        document.querySelector(`[name="description_${rowNum}"]`).value = material.beschreibung || '';
-        const meInput = document.querySelector(`[name="me_${rowNum}"]`);
+    entry.materialien.forEach((material) => {
+        const rowElement = createMaterialRow();
+        if (!rowElement) return;
+        tbody.appendChild(rowElement);
+
+        const rowNum = materialRowCount;
+        
+        rowElement.querySelector(`[name="material_${rowNum}"]`).value = material.eingabeNr || '';
+        rowElement.querySelector(`[name="primary_material_${rowNum}"]`).value = material.materialNr || '';
+        rowElement.querySelector(`[name="description_${rowNum}"]`).value = material.beschreibung || '';
+        const meInput = rowElement.querySelector(`[name="me_${rowNum}"]`);
         meInput.value = material.me.text || '';
         meInput.setAttribute('data-value', material.me.code || '');
-        document.querySelector(`[name="menge_${rowNum}"]`).value = material.menge || '';
+        rowElement.querySelector(`[name="menge_${rowNum}"]`).value = material.menge || '';
+        rowElement.querySelector(`[name="nachbestellen_${rowNum}"]`).checked = material.nachbestellen || false;
 
-        checkMaterialNumber(document.querySelector(`[name="material_${rowNum}"]`));
+        checkMaterialNumber(rowElement.querySelector(`[name="material_${rowNum}"]`));
     });
+
+    // Füge am Ende eine leere Zeile hinzu zum Weiterarbeiten
+    const finalEmptyRow = createMaterialRow();
+    if(finalEmptyRow) tbody.appendChild(finalEmptyRow);
 
     const collectionName = type === 'normal' ? 'entnahmen' : 'klaerungsfaelle';
     db.collection(collectionName).doc(id).delete()
@@ -749,168 +817,135 @@ function deleteEntry(id, type) {
     }
 }
 
-function exportToCSV(data, filename) {
-    if (data.length === 0) { 
-        alert('Keine Daten zum Exportieren vorhanden.'); 
-        return; 
-    }
-    let csvContent = 'Datum;Mitarbeiter;Vorgesetzter;Kostenstelle;Auftrag;Projekt-Nr;Material-Nr;Beschreibung;ME;Menge\n';
-    data.forEach(entry => {
-        const dateStr = formatTimestamp(entry.timestamp);
-        if(entry.materialien && entry.materialien.length > 0){
-            entry.materialien.forEach(m => {
-                const meText = m.me && m.me.text ? m.me.text : '';
-                csvContent += `${dateStr};${entry.mitarbeiter};${entry.vorgesetzter || ''};${entry.kostenstelle || ''};${entry.auftrag || ''};${entry.projektnr || ''};${m.eingabeNr || ''};${m.materialNr || ''};"${m.beschreibung || ''}";${meText};${m.menge || ''}\n`;
-            });
-        } else {
-             csvContent += `${dateStr};${entry.mitarbeiter};${entry.vorgesetzter || ''};${entry.kostenstelle || ''};${entry.auftrag || ''};${entry.projektnr || ''};;;;;\n`;
-        }
+function exportNormalHistoryToCSV() {
+    if (normalHistoryData.length === 0) { alert('Keine Daten zum Exportieren vorhanden.'); return; }
+    let csvContent = 'Datum;Mitarbeiter;Vorgesetzter;Kostenstelle;Auftrag;Projekt-Nr;Material-Nr;Beschreibung;Nachbestellen;ME;Menge\n';
+    normalHistoryData.forEach(entry => {
+        const dateStr = new Date(entry.entnahmedatum).toLocaleDateString('de-DE');
+        entry.materialien.forEach(m => {
+            const meText = m.me && m.me.text ? m.me.text : '';
+            const nachbestellenText = m.nachbestellen ? 'Ja' : 'Nein';
+            csvContent += `${dateStr};${entry.mitarbeiter};${entry.vorgesetzter || ''};${entry.kostenstelle || ''};${entry.auftrag || ''};${entry.projektnr || ''};${m.materialNr || ''};"${m.beschreibung || ''}";${nachbestellenText};${meText};${m.menge || ''}\n`;
+        });
     });
-    const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' }); // \uFEFF for BOM to support special characters in Excel
+    const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', filename);
+    link.setAttribute('download', `sap_data.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
 }
 
-function exportNormalHistoryToCSV() {
-            if (normalHistoryData.length === 0) { alert('Keine Daten zum Exportieren vorhanden.'); return; }
-            let csvContent = 'Datum;Mitarbeiter;Vorgesetzter;Kostenstelle;Auftrag;Projekt-Nr;Material-Nr;Beschreibung;ME;Menge\n';
-            normalHistoryData.forEach(entry => {
-                const dateStr = new Date(entry.entnahmedatum).toLocaleDateString('de-DE');
-                entry.materialien.forEach(m => {
-                    const meText = m.me && m.me.text ? m.me.text : '';
-                    csvContent += `${dateStr};${entry.mitarbeiter};${entry.vorgesetzter || ''};${entry.kostenstelle || ''};${entry.auftrag || ''};${entry.projektnr || ''};${m.materialNr || ''};${m.beschreibung || ''};${meText};${m.menge || ''}\n`;
-                });
-            });
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            const url = URL.createObjectURL(blob);
-            link.setAttribute('href', url);
-            link.setAttribute('download', `sap_data.csv`);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-
 function exportClarificationCasesToCSV() {
-            if (clarificationCasesData.length === 0) { alert('Keine Klärungsfälle zum Exportieren vorhanden.'); return; }
-            let csvContent = 'Datum;Mitarbeiter;Vorgesetzter;Kostenstelle;Auftrag;Projekt-Nr;Material-Nr;Beschreibung;ME;Menge\n';
-            clarificationCasesData.forEach(entry => {
-                const dateStr = new Date(entry.entnahmedatum).toLocaleDateString('de-DE');
-                entry.materialien.forEach(m => {
-                    const meText = m.me && m.me.text ? m.me.text : '';
-                    csvContent += `${dateStr};${entry.mitarbeiter};${entry.vorgesetzter || ''};${entry.kostenstelle || ''};${entry.auftrag || ''};${entry.projektnr || ''};${m.materialNr || ''};${m.beschreibung || ''};${meText};${m.menge || ''}\n`;
-                });
-            });
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            const url = URL.createObjectURL(blob);
-            link.setAttribute('href', url);
-            link.setAttribute('download', `klaerungsfaelle.csv`);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+    if (clarificationCasesData.length === 0) { alert('Keine Klärungsfälle zum Exportieren vorhanden.'); return; }
+    let csvContent = 'Datum;Mitarbeiter;Vorgesetzter;Kostenstelle;Auftrag;Projekt-Nr;Material-Nr;Beschreibung;Nachbestellen;ME;Menge\n';
+    clarificationCasesData.forEach(entry => {
+        const dateStr = new Date(entry.entnahmedatum).toLocaleDateString('de-DE');
+        entry.materialien.forEach(m => {
+            const meText = m.me && m.me.text ? m.me.text : '';
+            const nachbestellenText = m.nachbestellen ? 'Ja' : 'Nein';
+            csvContent += `${dateStr};${entry.mitarbeiter};${entry.vorgesetzter || ''};${entry.kostenstelle || ''};${entry.auftrag || ''};${entry.projektnr || ''};${m.materialNr || ''};"${m.beschreibung || ''}";${nachbestellenText};${meText};${m.menge || ''}\n`;
+        });
+    });
+    const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `klaerungsfaelle.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+async function openBarcodeScanner(rowNumber) {
+    currentMaterialInput = document.querySelector(`[name="material_${rowNumber}"]`);
+    const scannerDialog = document.getElementById('barcodeScannerDialog');
+    const qrVideo = document.getElementById('qr-video');
+    const scannerStatus = document.getElementById('scanner-status');
+    
+    scannerDialog.classList.remove('hidden');
+    scannerStatus.textContent = 'Kamera wird gestartet...';
+
+    try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            scannerStatus.textContent = 'Fehler: Kamerazugriff nicht unterstützt.';
+            alert('Kamerazugriff wird von Ihrem Browser nicht unterstützt.');
+            closeBarcodeScannerAndShowFallback(currentMaterialInput);
+            return;
         }
 
+        const hints = new Map();
+        const formats = [
+            ZXing.BarcodeFormat.CODE_128,
+            ZXing.BarcodeFormat.CODE_39,
+            ZXing.BarcodeFormat.EAN_13,
+            ZXing.BarcodeFormat.QR_CODE
+        ];
+        hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
 
-// --- ANPASSUNG: Barcode-Scanner-Funktion überarbeitet ---
-        // --- START: KORRIGIERTER BEREICH ---
+        codeReader = new ZXing.BrowserMultiFormatReader(hints);
+
+        codeReader.decodeFromVideoDevice(null, 'qr-video', (result, err) => {
+            if (result) {
+                const scannedBarcode = result.text;
+                console.log('Barcode gescannt:', scannedBarcode);
+                if (currentMaterialInput) {
+                    currentMaterialInput.value = scannedBarcode;
+                    checkMaterialNumber(currentMaterialInput);
+                    addRowIfNeeded(); // Prüfen, ob neue Zeile nötig ist
+                }
+                closeBarcodeScanner();
+            }
+            if (err && !(err instanceof ZXing.NotFoundException)) {
+                console.error('Scan-Fehler:', err);
+                scannerStatus.textContent = `Fehler beim Scannen: ${err.message}`;
+            }
+        });
+
+        scannerStatus.textContent = 'Scannen läuft... Halten Sie den Barcode vor die Kamera.';
+
+    } catch (err) {
+        console.error('Zugriff auf die Kamera fehlgeschlagen:', err);
+        let errorMessage = 'Unbekannter Fehler beim Kamerazugriff.';
+        if (err.name === 'NotAllowedError') {
+            errorMessage = 'Kamerazugriff wurde verweigert. Bitte erlauben Sie den Zugriff in Ihren Browsereinstellungen.';
+        } else if (err.name === 'NotFoundError') {
+            errorMessage = 'Keine Kamera gefunden.';
+        }
         
-        async function openBarcodeScanner(rowNumber) {
-            currentMaterialInput = document.querySelector(`[name="material_${rowNumber}"]`);
-            const scannerDialog = document.getElementById('barcodeScannerDialog');
-            const qrVideo = document.getElementById('qr-video');
-            const scannerStatus = document.getElementById('scanner-status');
-            
-            scannerDialog.classList.remove('hidden');
-            scannerStatus.textContent = 'Kamera wird gestartet...';
+        scannerStatus.textContent = `Fehler: ${errorMessage}`;
+        alert(`${errorMessage}\nBitte Materialnummer manuell eingeben.`);
+        closeBarcodeScannerAndShowFallback(currentMaterialInput);
+    }
+}
 
-            try {
-                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                    scannerStatus.textContent = 'Fehler: Kamerazugriff nicht unterstützt.';
-                    alert('Kamerazugriff wird von Ihrem Browser nicht unterstützt.');
-                    closeBarcodeScannerAndShowFallback(currentMaterialInput); // Fallback auf manuelle Eingabe
-                    return;
-                }
+function closeBarcodeScanner() {
+    const scannerDialog = document.getElementById('barcodeScannerDialog');
+    const qrVideo = document.getElementById('qr-video');
+    
+    if (codeReader) {
+        codeReader.reset();
+    }
+    scannerDialog.classList.add('hidden');
+    qrVideo.srcObject = null;
+    currentMaterialInput = null;
+}
 
-                // Wir geben dem Scanner "Hints" (Hinweise), welche Formate er suchen soll.
-                const hints = new Map();
-                const formats = [
-                    ZXing.BarcodeFormat.CODE_128, // Wichtig für Ihren Barcode
-                    ZXing.BarcodeFormat.CODE_39,
-                    ZXing.BarcodeFormat.EAN_13,
-                    ZXing.BarcodeFormat.QR_CODE // Wir lassen QR-Codes weiterhin aktiviert
-                ];
-                hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
-
-                // Initialisieren des Readers mit den neuen Hinweisen.
-                codeReader = new ZXing.BrowserMultiFormatReader(hints);
-
-                codeReader.decodeFromVideoDevice(null, 'qr-video', (result, err) => {
-                    if (result) {
-                        const scannedBarcode = result.text;
-                        console.log('Barcode gescannt:', scannedBarcode);
-                        if (currentMaterialInput) {
-                            currentMaterialInput.value = scannedBarcode;
-                            checkMaterialNumber(currentMaterialInput);
-                        }
-                        closeBarcodeScanner();
-                    }
-                    if (err && !(err instanceof ZXing.NotFoundException)) {
-                        console.error('Scan-Fehler:', err);
-                        scannerStatus.textContent = `Fehler beim Scannen: ${err.message}`;
-                    }
-                });
-
-                scannerStatus.textContent = 'Scannen läuft... Halten Sie den Barcode vor die Kamera.';
-
-            } catch (err) {
-                console.error('Zugriff auf die Kamera fehlgeschlagen:', err);
-                let errorMessage = 'Unbekannter Fehler beim Kamerazugriff.';
-                if (err.name === 'NotAllowedError') {
-                    errorMessage = 'Kamerazugriff wurde verweigert. Bitte erlauben Sie den Zugriff in Ihren Browsereinstellungen.';
-                } else if (err.name === 'NotFoundError') {
-                    errorMessage = 'Keine Kamera gefunden.';
-                }
-                
-                scannerStatus.textContent = `Fehler: ${errorMessage}`;
-                alert(`${errorMessage}\nBitte Materialnummer manuell eingeben.`);
-                closeBarcodeScannerAndShowFallback(currentMaterialInput); // Fallback auf manuelle Eingabe
-            }
+function closeBarcodeScannerAndShowFallback(inputElement) {
+    closeBarcodeScanner();
+    setTimeout(() => {
+        const barcode = prompt(`Kamerazugriff fehlgeschlagen. Bitte Materialnummer manuell eingeben:`);
+        if (barcode && inputElement) {
+            inputElement.value = barcode;
+            checkMaterialNumber(inputElement);
+            addRowIfNeeded();
         }
-
-        function closeBarcodeScanner() {
-            const scannerDialog = document.getElementById('barcodeScannerDialog');
-            const qrVideo = document.getElementById('qr-video');
-            
-            if (codeReader) {
-                codeReader.reset(); // Kamera und Stream stoppen
-            }
-            scannerDialog.classList.add('hidden');
-            qrVideo.srcObject = null; // Video-Stream leeren
-            currentMaterialInput = null; // Aktuelles Input-Feld zurücksetzen
-        }
-
-        function closeBarcodeScannerAndShowFallback(inputElement) {
-            closeBarcodeScanner(); // Schließt den Dialog und stoppt die Kamera
-            // Führt die manuelle Eingabe NACH dem Schließen aus
-            setTimeout(() => {
-                const barcode = prompt(`Kamerazugriff fehlgeschlagen. Bitte Materialnummer manuell eingeben:`);
-                if (barcode && inputElement) {
-                    inputElement.value = barcode;
-                    checkMaterialNumber(inputElement);
-                }
-            }, 100); // Eine kleine Verzögerung stellt sicher, dass der Dialog erst geschlossen ist
-        }
-
-        // --- ENDE: KORRIGIERTER BEREICH ---
+    }, 100);
+}
 
 async function applyZoomToCamera(stream) {
     const [track] = stream.getVideoTracks();
@@ -931,11 +966,9 @@ async function applyZoomToCamera(stream) {
     }
 }
 
-// Patch getUserMedia to apply zoom after camera starts
 const originalGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
 navigator.mediaDevices.getUserMedia = async function(constraints) {
     const stream = await originalGetUserMedia(constraints);
     applyZoomToCamera(stream);
     return stream;
 }
-// --- ENDE ANPASSUNG ---
