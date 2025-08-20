@@ -35,7 +35,8 @@ body {
     color: rgb(235, 0, 0);
 }
 /* Admin-Bereich, Verlauf und Klärungsfälle initial ausgeblendet */
-.admin-panel, .history-panel, .clarification-cases-panel {
+/* NEU: .reorder-history-panel hinzugefügt */
+.admin-panel, .history-panel, .clarification-cases-panel, .reorder-history-panel {
     display: none;
 }
 /* Menüleiste */
