@@ -128,7 +128,7 @@ body {
         width: 100%; /* Ensure table takes full width */
         display: block;
     }
-    .overflow-x-auto thead, .overflow-x-auto tbody, .overflow-x-auto th, .overflow-x-auto td, .overflow-x-auto tr:not(.hidden) {
+    .overflow-x-auto thead, .overflow-x-auto tbody, .overflow-x-auto th, .overflow-x-auto td, .overflow-x-auto tr {
         display: block;
     }
     .overflow-x-auto thead tr {
@@ -160,9 +160,10 @@ body {
     }
     
     .overflow-x-auto td:nth-of-type(1):before { content: "SAP-Nr."; }
-    .overflow-x-auto td:nth-of-type(2):before { content: ""; } /* Hide generic label for description */
-    .overflow-x-auto td:nth-of-type(3):before { content: "ME"; }
-    .overflow-x-auto td:nth-of-type(4):before { content: "Menge"; }
+    .overflow-x-auto td:nth-of-type(2):before { content: "Nachbestellen?"; }
+    .overflow-x-auto td:nth-of-type(3):before { content: ""; } /* Hide generic label for description */
+    .overflow-x-auto td:nth-of-type(4):before { content: "ME"; }
+    .overflow-x-auto td:nth-of-type(5):before { content: "Menge"; }
     
     /* --- ANPASSUNG: Besseres Layout für Beschreibung in mobiler Ansicht --- */
     .overflow-x-auto td[data-label="Beschreibung"] {
