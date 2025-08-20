@@ -819,13 +819,13 @@ function deleteEntry(id, type) {
 
 function exportNormalHistoryToCSV() {
     if (normalHistoryData.length === 0) { alert('Keine Daten zum Exportieren vorhanden.'); return; }
-    let csvContent = 'Datum;Mitarbeiter;Vorgesetzter;Kostenstelle;Auftrag;Projekt-Nr;Material-Nr;Beschreibung;ME;Menge\n;Nachbestellen';
+    let csvContent = 'Datum;Mitarbeiter;Vorgesetzter;Kostenstelle;Auftrag;Projekt-Nr;Material-Nr;Beschreibung;ME;Menge;Nachbestellen\n';
     normalHistoryData.forEach(entry => {
         const dateStr = new Date(entry.entnahmedatum).toLocaleDateString('de-DE');
         entry.materialien.forEach(m => {
             const meText = m.me && m.me.text ? m.me.text : '';
             const nachbestellenText = m.nachbestellen ? 'Ja' : 'Nein';
-            csvContent += `${dateStr};${entry.mitarbeiter};${entry.vorgesetzter || ''};${entry.kostenstelle || ''};${entry.auftrag || ''};${entry.projektnr || ''};${m.materialNr || ''};"${m.beschreibung || ''}";${meText};${m.menge || ''}\n;${nachbestellenText}`;
+            csvContent += `${dateStr};${entry.mitarbeiter};${entry.vorgesetzter || ''};${entry.kostenstelle || ''};${entry.auftrag || ''};${entry.projektnr || ''};${m.materialNr || ''};"${m.beschreibung || ''}";${meText};${m.menge || ''};${nachbestellenText}\n`;
         });
     });
     const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
@@ -841,13 +841,13 @@ function exportNormalHistoryToCSV() {
 
 function exportClarificationCasesToCSV() {
     if (clarificationCasesData.length === 0) { alert('Keine Klärungsfälle zum Exportieren vorhanden.'); return; }
-    let csvContent = 'Datum;Mitarbeiter;Vorgesetzter;Kostenstelle;Auftrag;Projekt-Nr;Material-Nr;Beschreibung;Nachbestellen;ME;Menge\n';
+    let csvContent = 'Datum;Mitarbeiter;Vorgesetzter;Kostenstelle;Auftrag;Projekt-Nr;Material-Nr;Beschreibung;ME;Menge;Nachbestellen\n';
     clarificationCasesData.forEach(entry => {
         const dateStr = new Date(entry.entnahmedatum).toLocaleDateString('de-DE');
         entry.materialien.forEach(m => {
             const meText = m.me && m.me.text ? m.me.text : '';
             const nachbestellenText = m.nachbestellen ? 'Ja' : 'Nein';
-            csvContent += `${dateStr};${entry.mitarbeiter};${entry.vorgesetzter || ''};${entry.kostenstelle || ''};${entry.auftrag || ''};${entry.projektnr || ''};${m.materialNr || ''};"${m.beschreibung || ''}";${nachbestellenText};${meText};${m.menge || ''}\n`;
+            csvContent += `${dateStr};${entry.mitarbeiter};${entry.vorgesetzter || ''};${entry.kostenstelle || ''};${entry.auftrag || ''};${entry.projektnr || ''};${m.materialNr || ''};"${m.beschreibung || ''}";${meText};${m.menge || ''};${nachbestellenText}\n`;
         });
     });
     const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
