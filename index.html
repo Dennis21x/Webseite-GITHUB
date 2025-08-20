@@ -26,6 +26,9 @@
         <div class="menu-item px-6 py-3 text-white font-medium cursor-pointer text-center sm:text-left" id="adminMenuItem">
             Administrator-Bereich
         </div>
+        <div class="menu-item px-6 py-3 text-white font-medium cursor-pointer hidden text-center sm:text-left" id="reorderHistoryMenuItem">
+            Nachbestell-Verlauf
+        </div>
         <div class="menu-item px-6 py-3 text-white font-medium cursor-pointer hidden text-center sm:text-left" id="historyMenuItem">
             Entnahme-Verlauf
         </div>
@@ -68,6 +71,7 @@
         <div class="mt-6 border-t border-gray-200 pt-6">
             <h3 class="text-lg font-medium text-gray-800 mb-3">Verwaltung</h3>
             <div class="flex flex-col sm:flex-row gap-3">
+                <button class="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700" id="showReorderHistoryAdminBtn" type="button">Nachbestell-Verlauf anzeigen</button>
                 <button class="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700" id="showNormalHistoryAdminBtn" type="button">Entnahme-Verlauf anzeigen</button>
                 <button class="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700" id="showClarificationCasesAdminBtn" type="button">Klärungsfälle anzeigen</button>
             </div>
@@ -139,6 +143,30 @@
                 <button class="btn-primary w-full sm:w-auto px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-md" type="submit">Entnahme bestätigen</button>
             </div>
         </form>
+    </div>
+</div>
+
+<div class="reorder-history-panel max-w-5xl mx-auto mt-8 bg-white rounded-lg shadow-md overflow-hidden">
+    <div class="bg-gray-800 text-white p-4 flex flex-col sm:flex-row justify-between items-center gap-2">
+        <h2 class="text-xl font-bold">Nachbestell-Verlauf</h2>
+        <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <button class="px-4 py-1 bg-blue-600 hover:bg-blue-700 rounded-md text-sm font-medium" id="exportReorderHistoryBtn">Als CSV exportieren</button>
+            <button class="px-4 py-1 bg-red-600 hover:bg-red-700 rounded-md text-sm font-medium" id="clearReorderHistoryBtn">Verlauf löschen</button>
+        </div>
+    </div>
+    <div class="p-4 overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead>
+                <tr>
+                    <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Datum</th>
+                    <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mitarbeiter</th>
+                    <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Materialien zum Nachbestellen</th>
+                    <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aktionen</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200" id="reorderHistoryList"></tbody>
+        </table>
+        <div class="text-center py-4 text-gray-500" id="emptyReorderHistory">Keine Nachbestellungen vorhanden</div>
     </div>
 </div>
 
