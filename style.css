@@ -19,12 +19,17 @@ body {
 .material-row:nth-child(odd) {
     background-color: rgba(0, 0, 0, 0.03);
 }
+
+.material-table {
+    table-layout: fixed;
+    width: 100%;
+}
+
 .description-field {
     background-color: #f9f9f9;
-    /* ANPASSUNG: Größenänderung ist jetzt deaktiviert und Höhe ist fest. */
     resize: none; 
-    height: 42px; /* Feste Höhe für Desktop, passend zu anderen Inputs */
-    padding-top: 0.65rem; /* Feinabstimmung für bessere vertikale Zentrierung in der festen Höhe */
+    height: 42px;
+    padding-top: 0.65rem;
     padding-bottom: 0.65rem;
 }
 .description-field.auto-filled {
@@ -34,12 +39,9 @@ body {
     background-color: #ffe8e8;
     color: rgb(235, 0, 0);
 }
-/* Admin-Bereich, Verlauf und Klärungsfälle initial ausgeblendet */
-/* NEU: .reorder-history-panel hinzugefügt */
 .admin-panel, .history-panel, .clarification-cases-panel, .reorder-history-panel {
     display: none;
 }
-/* Menüleiste */
 .menu-bar {
     background: linear-gradient(90deg, #1a2a3a, #2c3e50);
 }
@@ -53,7 +55,6 @@ body {
     background-color: rgba(255, 255, 255, 0.2);
     border-bottom: 2px solid #3498db;
 }
-/* Dropdown für Mengeneinheit */
 .me-dropdown {
     position: relative;
     display: inline-block;
@@ -65,7 +66,7 @@ body {
     background-color: #f9f9f9;
     min-width: 160px;
     box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
-    z-index: 1;
+    z-index: 10; /* Erhöhter z-index zur Sicherheit */
     max-height: 200px;
     overflow-y: auto;
     width: 100%;
@@ -87,14 +88,13 @@ body {
 .me-dropdown.show .me-dropdown-content {
     display: block;
 }
-/* Flexbox für SAP-Nummernfeld und Kamera-Icon */
 .material-input-group {
     display: flex;
     align-items: center;
-    gap: 4px; /* Kleiner Abstand zwischen Feld und Icon */
+    gap: 4px;
 }
 .material-input-group input {
-    flex-grow: 1; /* Eingabefeld nimmt den meisten Platz ein */
+    flex-grow: 1;
 }
 .barcode-scan-btn {
     background: #3498db;
@@ -106,12 +106,11 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    flex-shrink: 0; /* Verhindert, dass der Button schrumpft */
+    flex-shrink: 0;
 }
 .barcode-scan-btn:hover {
     background-color: #2980b9;
 }
-/* Responsive Table */
 @media screen and (max-width: 768px) {
     .terminal-container {
         padding: 0;
@@ -126,7 +125,7 @@ body {
         grid-template-columns: 1fr;
     }
     .overflow-x-auto table {
-        width: 100%; /* Ensure table takes full width */
+        width: 100%;
         display: block;
     }
     .overflow-x-auto thead, .overflow-x-auto tbody, .overflow-x-auto th, .overflow-x-auto td, .overflow-x-auto tr {
@@ -162,11 +161,10 @@ body {
     
     .overflow-x-auto td:nth-of-type(1):before { content: "SAP-Nr."; }
     .overflow-x-auto td:nth-of-type(2):before { content: "Nachbestellen?"; }
-    .overflow-x-auto td:nth-of-type(3):before { content: ""; } /* Hide generic label for description */
+    .overflow-x-auto td:nth-of-type(3):before { content: ""; }
     .overflow-x-auto td:nth-of-type(4):before { content: "ME"; }
     .overflow-x-auto td:nth-of-type(5):before { content: "Menge"; }
     
-    /* --- ANPASSUNG: Besseres Layout für Beschreibung in mobiler Ansicht --- */
     .overflow-x-auto td[data-label="Beschreibung"] {
         padding: 0.5rem;
         padding-top: 2rem; 
@@ -185,18 +183,15 @@ body {
     .overflow-x-auto td[data-label="Beschreibung"] .description-field {
         width: 100%;
         text-align: left;
-        /* ANPASSUNG: Feste Höhe für ca. 2 Zeilen Text in der mobilen Ansicht */
         height: 4.5rem;
     }
-    /* --- ENDE --- */
 
-    /* Specific adjustments for input fields in responsive table */
     .overflow-x-auto td .material-input-group {
         width: 100%;
-        justify-content: flex-end; /* Align content to the right */
+        justify-content: flex-end;
     }
     .overflow-x-auto td .material-input-group input {
-        text-align: right; /* Align text right in input field */
+        text-align: right;
     }
     .overflow-x-auto td .me-dropdown {
         width: 100%;
@@ -207,10 +202,9 @@ body {
     }
     .overflow-x-auto td .me-dropdown-content {
         left: unset;
-        right: 0; /* Align dropdown to the right */
+        right: 0;
     }
 }
-/* Stil für das Barcode-Scanner-Modal */
 #barcodeScannerDialog video {
     width: 100%;
     height: auto;
@@ -220,8 +214,14 @@ body {
 }
 #barcodeScannerDialog #scanner-container {
     position: relative;
-    overflow: hidden; /* Sicherstellen, dass nichts überläuft */
+    overflow: hidden;
 }
 #barcodeScannerDialog #qr-canvas {
-    display: none; /* Canvas wird normalerweise von ZXing für das Zeichnen von Erkennungsrahmen verwendet */
+    display: none;
+}
+
+/* KORREKTUR: Hebt die Overflow-Beschränkung für den Hauptcontainer und den Tabellen-Container auf, wenn das Dropdown geöffnet ist. */
+.terminal-container:has(.me-dropdown.show),
+.overflow-x-auto:has(.me-dropdown.show) {
+    overflow: visible;
 }
