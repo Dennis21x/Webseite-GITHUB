@@ -25,7 +25,9 @@ let materialDatabase = {
     alternative: {} // Alternative SAP-Nummern -> primäreNr
 };
 let normalHistoryData = []; 
-let clarificationCasesData = []; 
+let clarificationCasesData = [];
+// NEU: Variable für Nachbestellverlauf
+let reorderHistoryData = [];
 const ADMIN_PIN = "100400#x"; // Admin PIN-Code
 let pendingSubmitData = null; // Für die Warndialoge
 let isInAdminMode = false; // Track admin mode state
@@ -312,24 +314,25 @@ document.addEventListener('DOMContentLoaded', function() {
             const materialInput = row.querySelector('.material-input');
             const mengeInput = row.querySelector('.menge-input');
             const descriptionInput = row.querySelector('.description-field');
-            if (mengeInput.value.trim() !== '' && (materialInput.value.trim() !== '' || descriptionInput.value.trim() !== '')) {
+            const reorderCheckbox = row.querySelector('input[type="checkbox"]');
+            
+            // Eine Zeile ist gültig, wenn sie entweder eine Menge hat ODER zum Nachbestellen markiert ist (mit SAP/Beschreibung)
+            const hasIdentifier = materialInput.value.trim() !== '' || descriptionInput.value.trim() !== '';
+            const hasQuantity = mengeInput.value.trim() !== '';
+            
+            if (hasIdentifier && (hasQuantity || reorderCheckbox.checked)) {
                 hasAtLeastOneValidRow = true;
             }
         });
 
         if (!hasAtLeastOneValidRow) {
-            alert('Fehler: Es muss mindestens eine Zeile mit SAP-Nr./Beschreibung UND Menge ausgefüllt sein.');
+            alert('Fehler: Es muss mindestens eine gültige Materialzeile ausgefüllt sein (mit Menge oder als Nachbestellung markiert).');
             return;
         }
 
+        // Alte Validierung für fehlende Menge wird durch die neue Logik in submitForm behandelt
+        // Die Validierung für Kostenstelle bleibt jedoch erhalten
         const validationResult = validateForm();
-        if (validationResult.missingMenge.length > 0) {
-            const warningText = `Mengenangabe in Zeile(n) ${validationResult.missingMenge.join(', ')} fehlt! Trotzdem übertragen?`;
-            document.getElementById('warningMengeText').textContent = warningText;
-            document.getElementById('warningMengeDialog').classList.remove('hidden');
-            pendingSubmitData = { type: 'menge', data: collectFormData() };
-            return;
-        }
         if (validationResult.missingKosten) {
             document.getElementById('warningKostenDialog').classList.remove('hidden');
             pendingSubmitData = { type: 'kosten', data: collectFormData() };
@@ -351,6 +354,19 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('warningKostenDialog').classList.add('hidden');
         if (pendingSubmitData && pendingSubmitData.type === 'kosten') { submitForm(pendingSubmitData.data); }
         pendingSubmitData = null;
+    });
+
+    // NEU: Reorder History Buttons
+    document.getElementById('exportReorderHistoryBtn').addEventListener('click', exportReorderHistoryToCSV);
+    document.getElementById('clearReorderHistoryBtn').addEventListener('click', () => {
+        if (confirm('Möchten Sie wirklich den gesamten Nachbestell-Verlauf löschen? Diese Aktion kann nicht rückgängig gemacht werden.')) {
+            const batch = db.batch();
+            reorderHistoryData.forEach(entry => {
+                const docRef = db.collection("nachbestellungen").doc(entry.id);
+                batch.delete(docRef);
+            });
+            batch.commit().then(() => console.log("Nachbestell-Verlauf gelöscht.")).catch(e => console.error("Fehler beim Löschen: ", e));
+        }
     });
 
     // Normal History Buttons
@@ -404,21 +420,29 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Admin panel specific button listeners
+    // NEU: Button für Nachbestell-Verlauf
+    document.getElementById('showReorderHistoryAdminBtn').addEventListener('click', () => {
+        document.querySelector('.admin-panel .p-6').style.display = 'none'; 
+        document.querySelector('.reorder-history-panel').style.display = 'block';
+        document.querySelector('.history-panel').style.display = 'none';
+        document.querySelector('.clarification-cases-panel').style.display = 'none'; 
+        document.getElementById('backToAdminPanelBtn').classList.remove('hidden'); 
+        updateReorderHistoryTable();
+    });
+
     document.getElementById('showNormalHistoryAdminBtn').addEventListener('click', () => {
-        document.querySelector('.terminal-container').style.display = 'none'; 
-        document.querySelector('.admin-panel').style.display = 'block'; 
         document.querySelector('.admin-panel .p-6').style.display = 'none'; 
         document.querySelector('.history-panel').style.display = 'block';
+        document.querySelector('.reorder-history-panel').style.display = 'none';
         document.querySelector('.clarification-cases-panel').style.display = 'none'; 
         document.getElementById('backToAdminPanelBtn').classList.remove('hidden'); 
         updateNormalHistoryTable();
     });
 
     document.getElementById('showClarificationCasesAdminBtn').addEventListener('click', () => {
-        document.querySelector('.terminal-container').style.display = 'none';
-        document.querySelector('.admin-panel').style.display = 'block';
         document.querySelector('.admin-panel .p-6').style.display = 'none'; 
         document.querySelector('.clarification-cases-panel').style.display = 'block'; 
+        document.querySelector('.reorder-history-panel').style.display = 'none';
         document.querySelector('.history-panel').style.display = 'none'; 
         document.getElementById('backToAdminPanelBtn').classList.remove('hidden');
         updateClarificationCasesTable();
@@ -428,6 +452,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelector('.admin-panel .p-6').style.display = 'block'; 
         document.querySelector('.history-panel').style.display = 'none'; 
         document.querySelector('.clarification-cases-panel').style.display = 'none'; 
+        document.querySelector('.reorder-history-panel').style.display = 'none';
         document.getElementById('backToAdminPanelBtn').classList.add('hidden'); 
     });
 
@@ -461,12 +486,15 @@ function setActiveMenuItem(itemId) {
     const adminPanel = document.querySelector('.admin-panel');
     const historyPanel = document.querySelector('.history-panel');
     const clarificationCasesPanel = document.querySelector('.clarification-cases-panel');
+    // NEU: reorderHistoryPanel Variable
+    const reorderHistoryPanel = document.querySelector('.reorder-history-panel');
     const backToAdminPanelBtn = document.getElementById('backToAdminPanelBtn');
 
     terminalPanel.style.display = 'none';
     adminPanel.style.display = 'none';
     historyPanel.style.display = 'none';
     clarificationCasesPanel.style.display = 'none';
+    reorderHistoryPanel.style.display = 'none'; // NEU
     backToAdminPanelBtn.classList.add('hidden');
 
     if (itemId === 'terminalMenuItem') {
@@ -475,8 +503,6 @@ function setActiveMenuItem(itemId) {
     } else if (itemId === 'adminMenuItem') {
         adminPanel.style.display = 'block';
         adminPanel.querySelector('.p-6').style.display = 'block';
-        historyPanel.style.display = 'none'; 
-        clarificationCasesPanel.style.display = 'none';
     }
 }
 
@@ -540,6 +566,14 @@ function loadAllData() {
             document.getElementById('databaseStatus').textContent = 'Status: Fehler beim Laden der Materialdatenbank von GitHub. Manuelles Hochladen möglich.';
             alert("Die Materialdatenbank konnte nicht automatisch geladen werden. Bitte laden Sie die CSV-Datei manuell im Admin-Bereich hoch.");
         });
+    
+    // NEU: Firestore Listener für Nachbestellungen
+    db.collection("nachbestellungen").orderBy("timestamp", "desc").onSnapshot(snapshot => {
+        reorderHistoryData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        updateReorderHistoryTable();
+    }, err => {
+        console.error("Fehler beim Laden des Nachbestell-Verlaufs: ", err);
+    });
 
     db.collection("entnahmen").orderBy("timestamp", "desc").onSnapshot(snapshot => {
         normalHistoryData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -557,17 +591,9 @@ function loadAllData() {
 }
 
 function validateForm() {
-    const result = { missingMenge: [], missingKosten: false };
-    document.querySelectorAll('.material-row').forEach((row, index) => {
-        const materialNrInput = row.querySelector('.material-input');
-        const mengeInput = row.querySelector('.menge-input');
-        const descriptionInput = row.querySelector('.description-field');
-
-        if ((materialNrInput.value.trim() !== '' || descriptionInput.value.trim() !== '') && mengeInput.value.trim() === '') {
-            result.missingMenge.push(index + 1); // Zeilennummer ist 1-basiert
-        }
-    });
-    
+    // Die Validierung für fehlende Menge wird entfernt, da dies jetzt ein gültiger Fall für Nachbestellungen ist.
+    // Es wird nur noch geprüft, ob eine Kostenstelle/Auftrag/Projekt-Nr. fehlt.
+    const result = { missingKosten: false };
     const kostenstelle = document.getElementById('kostenstelle').value.trim();
     const auftrag = document.getElementById('auftrag').value.trim();
     const projektnr = document.getElementById('projektnr').value.trim();
@@ -589,7 +615,8 @@ function collectFormData() {
         const beschreibung = beschreibungInput.value.trim();
         const menge = mengeInput.value.trim();
         
-        if (materialNr !== '' || beschreibung !== '' || menge !== '') {
+        // Nur Zeilen mit einer Eingabe (SAP-Nr. oder Beschreibung) berücksichtigen
+        if (materialNr !== '' || beschreibung !== '') {
             materialien.push({
                 materialNr: primaryNrInput.value.trim(),
                 eingabeNr: materialNr,
@@ -630,22 +657,77 @@ function isClarificationCase(formData) {
     return false;
 }
 
+// --- START: KOMPLETT ÜBERARBEITETE SUBMITFORM FUNKTION ---
 function submitForm(formData) {
-    const dataToSave = { 
-        ...formData,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp() 
+    const commonData = {
+        mitarbeiter: formData.mitarbeiter,
+        entnahmedatum: formData.entnahmedatum,
+        vorgesetzter: formData.vorgesetzter,
+        kostenstelle: formData.kostenstelle,
+        auftrag: formData.auftrag,
+        projektnr: formData.projektnr,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
     };
 
-    const collectionName = isClarificationCase(formData) ? "klaerungsfaelle" : "entnahmen";
-    
-    db.collection(collectionName).add(dataToSave)
-        .then((docRef) => {
-            console.log(`${collectionName} erfolgreich mit ID ${docRef.id} gespeichert.`);
-            resetForm();
-            document.getElementById('confirmationDialog').classList.remove('hidden');
-        })
-        .catch(error => console.error(`Fehler beim Speichern von ${collectionName}: `, error));
+    const withdrawalMaterials = [];
+    const reorderMaterials = [];
+
+    formData.materialien.forEach(material => {
+        const hasQuantity = material.menge && material.menge > 0;
+        const isReorder = material.nachbestellen;
+
+        // Szenario 1 & 2 (Nur Nachbestellen / Ausgeschnittener Teil)
+        // Bedingung: Haken bei Nachbestellen, aber KEINE Mengenangabe.
+        if (isReorder && !hasQuantity) {
+            reorderMaterials.push(material);
+        } 
+        // Szenario 3 (Kopie für Nachbestellen)
+        // Bedingung: Haken bei Nachbestellen UND eine Mengenangabe.
+        else if (isReorder && hasQuantity) {
+            withdrawalMaterials.push(material); // Geht in den normalen Verlauf
+            reorderMaterials.push(material);    // Eine Kopie geht in den Nachbestellverlauf
+        } 
+        // Normaler Entnahme-Fall
+        // Bedingung: Mengenangabe vorhanden, aber KEIN Haken bei Nachbestellen.
+        else if (hasQuantity) {
+            withdrawalMaterials.push(material);
+        }
+    });
+
+    const promises = [];
+
+    // Verarbeite die normalen Entnahmen (und Klärungsfälle)
+    if (withdrawalMaterials.length > 0) {
+        const withdrawalPayload = { ...commonData, materialien: withdrawalMaterials };
+        const collectionName = isClarificationCase(withdrawalPayload) ? "klaerungsfaelle" : "entnahmen";
+        promises.push(db.collection(collectionName).add(withdrawalPayload));
+        console.log(`Speichere ${withdrawalMaterials.length} Materialien in ${collectionName}.`);
+    }
+
+    // Verarbeite die Nachbestellungen
+    if (reorderMaterials.length > 0) {
+        const reorderPayload = { ...commonData, materialien: reorderMaterials };
+        promises.push(db.collection("nachbestellungen").add(reorderPayload));
+        console.log(`Speichere ${reorderMaterials.length} Materialien in nachbestellungen.`);
+    }
+
+    if (promises.length > 0) {
+        Promise.all(promises)
+            .then(() => {
+                console.log("Alle Daten erfolgreich gespeichert.");
+                resetForm();
+                document.getElementById('confirmationDialog').classList.remove('hidden');
+            })
+            .catch(error => {
+                console.error("Fehler beim Speichern der Daten: ", error);
+                alert("Ein Fehler ist beim Speichern aufgetreten. Bitte Konsole prüfen.");
+            });
+    } else {
+        console.log("Keine Daten zum Speichern vorhanden.");
+        // Dieser Fall sollte durch die Formular-Validierung vorher abgefangen werden.
+    }
 }
+// --- ENDE: KOMPLETT ÜBERARBEITETE SUBMITFORM FUNKTION ---
 
 function resetForm() {
     const today = new Date().toISOString().split('T')[0];
@@ -668,6 +750,51 @@ function formatTimestamp(firebaseTimestamp) {
     }
     return firebaseTimestamp.toDate().toLocaleDateString('de-DE');
 }
+
+// NEU: Funktion zur Aktualisierung der Nachbestell-Tabelle
+function updateReorderHistoryTable() {
+    const tbody = document.getElementById('reorderHistoryList');
+    tbody.innerHTML = '';
+    const emptyHistory = document.getElementById('emptyReorderHistory');
+    if (reorderHistoryData.length === 0) {
+        emptyHistory.style.display = 'block';
+    } else {
+        emptyHistory.style.display = 'none';
+        reorderHistoryData.forEach(entry => {
+            const row = document.createElement('tr');
+            const materialText = entry.materialien
+                .map(m => {
+                    let text = m.materialNr ? `${m.materialNr} - ${m.beschreibung}` : (m.eingabeNr || m.beschreibung);
+                    // Zeige Menge nur an, wenn sie > 0 ist (für den Fall der Kopie)
+                    if (m.menge > 0) {
+                       text += ` (${m.menge} ${m.me.text || ''})`;
+                    }
+                    text += ` <span class="text-blue-600 font-bold">[Nachbestellen]</span>`;
+                    return text;
+                }).join('<br>');
+            
+            const kostenText = [
+                entry.kostenstelle ? `KST: ${entry.kostenstelle}` : null,
+                entry.auftrag ? `Auf: ${entry.auftrag}` : null,
+                entry.projektnr ? `Proj: ${entry.projektnr}` : null
+            ].filter(Boolean).join(', ');
+
+            row.innerHTML = `
+                <td class="px-4 py-3 align-top" data-label="Datum">${formatTimestamp(entry.timestamp)}</td>
+                <td class="px-4 py-3 align-top" data-label="Mitarbeiter">${entry.mitarbeiter}<br><small>${kostenText}</small></td>
+                <td class="px-4 py-3 align-top" data-label="Materialien">${materialText}</td>
+                <td class="px-4 py-3 align-top" data-label="Aktionen">
+                    <div class="flex flex-col sm:flex-row gap-2">
+                        <button class="px-3 py-1 bg-yellow-500 text-white text-xs rounded hover:bg-yellow-600" onclick="editEntry('${entry.id}', 'reorder')">Bearbeiten</button>
+                        <button class="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700" onclick="deleteEntry('${entry.id}', 'reorder')">Löschen</button>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    }
+}
+
 
 function updateNormalHistoryTable() {
     const tbody = document.getElementById('normalHistoryList');
@@ -756,7 +883,20 @@ function updateClarificationCasesTable() {
 }
 
 function editEntry(id, type) {
-    const dataSet = type === 'normal' ? normalHistoryData : clarificationCasesData;
+    let dataSet, collectionName; // NEU: Variablen deklarieren
+    if (type === 'normal') {
+        dataSet = normalHistoryData;
+        collectionName = 'entnahmen';
+    } else if (type === 'clarification') {
+        dataSet = clarificationCasesData;
+        collectionName = 'klaerungsfaelle';
+    } else if (type === 'reorder') { // NEU: Fall für Nachbestellungen
+        dataSet = reorderHistoryData;
+        collectionName = 'nachbestellungen';
+    } else {
+        return;
+    }
+
     const entry = dataSet.find(item => item.id === id);
     if (!entry) {
         console.error("Eintrag nicht gefunden!");
@@ -798,10 +938,10 @@ function editEntry(id, type) {
     // Füge am Ende eine leere Zeile hinzu zum Weiterarbeiten
     const finalEmptyRow = createMaterialRow();
     if(finalEmptyRow) tbody.appendChild(finalEmptyRow);
-
-    const collectionName = type === 'normal' ? 'entnahmen' : 'klaerungsfaelle';
+    
+    // Lösche den alten Eintrag
     db.collection(collectionName).doc(id).delete()
-      .then(() => console.log(`Alter Eintrag ${id} gelöscht. Bereit zum Neuspeichern.`))
+      .then(() => console.log(`Alter Eintrag ${id} aus ${collectionName} gelöscht. Bereit zum Neuspeichern.`))
       .catch(e => console.error("Fehler beim Löschen des alten Eintrags: ", e));
     
     setActiveMenuItem('terminalMenuItem');
@@ -810,7 +950,16 @@ function editEntry(id, type) {
 
 function deleteEntry(id, type) {
     if (confirm('Wollen Sie diesen Eintrag wirklich endgültig löschen?')) {
-        const collectionName = type === 'normal' ? 'entnahmen' : 'klaerungsfaelle';
+        let collectionName; // NEU: Variable deklarieren
+        if (type === 'normal') {
+            collectionName = 'entnahmen';
+        } else if (type === 'clarification') {
+            collectionName = 'klaerungsfaelle';
+        } else if (type === 'reorder') { // NEU: Fall für Nachbestellungen
+            collectionName = 'nachbestellungen';
+        } else {
+            return;
+        }
         db.collection(collectionName).doc(id).delete()
             .then(() => console.log("Eintrag erfolgreich gelöscht."))
             .catch(error => console.error("Fehler beim Löschen: ", error));
@@ -832,7 +981,32 @@ function exportNormalHistoryToCSV() {
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', `sap_data.csv`);
+    link.setAttribute('download', `entnahme_verlauf.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// NEU: Funktion zum Exportieren des Nachbestell-Verlaufs
+function exportReorderHistoryToCSV() {
+    if (reorderHistoryData.length === 0) { alert('Keine Nachbestellungen zum Exportieren vorhanden.'); return; }
+    let csvContent = 'Datum;Mitarbeiter;Vorgesetzter;Kostenstelle;Auftrag;Projekt-Nr;Material-Nr;Beschreibung;ME;Menge;Nachbestellen\n';
+    reorderHistoryData.forEach(entry => {
+        const dateStr = new Date(entry.entnahmedatum).toLocaleDateString('de-DE');
+        entry.materialien.forEach(m => {
+            const meText = m.me && m.me.text ? m.me.text : '';
+            const nachbestellenText = m.nachbestellen ? 'Ja' : 'Nein';
+            // Menge wird nur exportiert, wenn sie > 0 ist
+            const mengeText = m.menge > 0 ? m.menge : ''; 
+            csvContent += `${dateStr};${entry.mitarbeiter};${entry.vorgesetzter || ''};${entry.kostenstelle || ''};${entry.auftrag || ''};${entry.projektnr || ''};${m.materialNr || ''};"${m.beschreibung || ''}";${meText};${mengeText};${nachbestellenText}\n`;
+        });
+    });
+    const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `nachbestell_verlauf.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
